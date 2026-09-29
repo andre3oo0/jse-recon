@@ -1,5 +1,6 @@
 """Build stg_price and the data quality views from raw_price, then report what they found."""
 
+import argparse
 import sqlite3
 import sys
 
@@ -74,6 +75,25 @@ def report(conn: sqlite3.Connection) -> None:
             bars = sum(g[2] for g in partial)
             print(f"  Individual missing bars: {bars} across {len(partial)} sessions")
 
+        stale_days = config.tolerance_rules()["dq"]["stale_price_days"]
+        stale = conn.execute(
+            """
+            SELECT security_id, price_date, stale_days, close_zar
+            FROM (
+                SELECT security_id, price_date, stale_days, close_zar,
+                       LEAD(stale_days) OVER (PARTITION BY vendor_symbol ORDER BY price_date) AS next_days
+                FROM stg_price
+                WHERE source = ? AND snapshot_date = ?
+            )
+            WHERE stale_days >= ? AND COALESCE(next_days, 0) <> stale_days + 1
+            ORDER BY stale_days DESC, price_date
+            """,
+            (*key, stale_days),
+        ).fetchall()
+        print(f"  Prices unchanged for {stale_days}+ sessions: {len(stale)}")
+        for sec, end, days, close in stale[:5]:
+            print(f"    {sec:<4} R{close:,.2f} for {days} sessions, to {end}")
+
         closed = conn.execute(
             """
             SELECT price_date, reason, COUNT(*), SUM(volume > 0)
@@ -89,10 +109,15 @@ def report(conn: sqlite3.Connection) -> None:
             print(f"    {day}  {reason:<34} {bars} bars, {traded} with volume")
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--report-only", action="store_true", help="report on the tables as they are")
+    args = p.parse_args(argv)
+
     conn = db.connect()
     db.apply_schema(conn)
-    build(conn)
+    if not args.report_only:
+        build(conn)
     report(conn)
     return 0
 

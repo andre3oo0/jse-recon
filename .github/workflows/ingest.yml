@@ -61,10 +61,6 @@ jobs:
           REFETCH: ${{ inputs.refetch && '--refetch' || '' }}
         run: python -m src.ingest --period "$PERIOD" --min-coverage 0.95 $REFETCH 2>&1 | tee ingest.log
 
-      - name: Data quality
-        shell: bash
-        run: python -m src.staging 2>&1 | tee dq.log
-
       - name: Commit snapshot
         if: ${{ !inputs.dry_run }}
         working-directory: data/landing
@@ -80,11 +76,30 @@ jobs:
           git commit -m "yahoo snapshot $(TZ=Africa/Johannesburg date +%F)"
           git push origin snapshots
 
+      - name: Data quality  # after the commit, so a failing report can never cost a snapshot
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: python -m src.staging --report-only 2>&1 | tee dq.log
+
+      - name: Reconcile
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: python -m src.recon 2>&1 | tee recon.log
+
+      - name: Answers
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: python -m src.answers 2>&1 | tee answers.log
+
       - name: Summary
         if: always()
         shell: bash
         run: |
           {
+            echo "### Answers"
+            echo '```'
+            cat answers.log 2>/dev/null || echo "Answers step did not run."
+            echo '```'
             echo "### Ingest"
             echo '```'
             cat ingest.log 2>/dev/null || echo "Snapshot step did not run."
@@ -92,5 +107,9 @@ jobs:
             echo "### Data quality"
             echo '```'
             cat dq.log 2>/dev/null || echo "Data quality step did not run."
+            echo '```'
+            echo "### Reconciliation"
+            echo '```'
+            cat recon.log 2>/dev/null || echo "Reconciliation step did not run."
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

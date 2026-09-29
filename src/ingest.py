@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src import config, db, security_master
+from src import config, db, security_master, staging
 from src.sources.base import PRICE_COLUMNS, PriceSource, SymbolStatus
 from src.sources.yahoo import YahooSource
 
@@ -212,6 +212,7 @@ def main(argv=None) -> int:
         return 2
     run_id = load(conn, prices_path, manifest)
     coverage_report(conn, run_id)
+    staging.build(conn)  # keep the derived tables in step with raw
     return 0
 
 

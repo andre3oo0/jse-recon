@@ -57,9 +57,9 @@ percentage, set per source pair and per field in
 | 0 | Scaffold, SQLite warehouse, config | Done |
 | 1 | Source adapter contract, Yahoo adapter, landing, ingest audit, scheduled ingest | Done, first snapshot 2026-09-29 |
 | 2 | Security master (statuses, renames), trading calendar, staging, data quality checks | Done; ISINs still to populate |
-| 3 | Recon engine: full outer join, tolerances, classification | |
+| 3 | Recon engine: full outer join, tolerances, scope, classification; answers report | Done; restatement recon runs daily |
 | 4 | Break store: lifecycle, idempotent upsert, ageing | |
-| 5 | Seeded break suite and completeness assertions | Ingest, calendar and staging tests done |
+| 5 | Seeded break suite and completeness assertions | Done: one planted defect per break type |
 | 6 | Excel break report and recon summary | |
 | 7 | Write-up: noise reduction and NAV-bp cost | |
 | 8 | Second source or restatement recon; holdings recon (synthetic EasyEquities export) | |
@@ -88,4 +88,9 @@ If time runs short, cut phase 8 before phase 5.
 | Unit check uses the two nearest bars | A glitch is ~100x off both; a genuine share consolidation moves once and stays, so one reference clears it. At the edge of a series, the two nearest on one side are used, so today's bar is still checked. |
 | Unit band is 80x to 125x | Calibrated on real data: a ±5% band missed CMH on 2025-04-25, which also moved 10% that day. |
 | Each snapshot records its session cutoff | The last complete session at fetch time. Without it, a vendor that stops early looks like a short history rather than a missing day. |
+| Recon compares only securities both sides requested | A universe change is a scope difference, reported separately. Without this, adding NTU produced 64 false breaks. |
+| Both sides carrying the same glitch is a MATCH | The recon measures disagreement between sources; a shared error is a data quality finding, noted on the row. |
+| Seeded tests use prices that move | Five identical closes is a stale price, so a flat fixture made every planted break look `STALE`. |
+| Costs are measured against ASISA's 0.5% tolerance | s10.3.3 of the ASISA NAV standard, the South African reference for when a pricing error is material. |
+| Output is organised as answers to questions | The project exists to answer whether a feed can be trusted to value a fund; `src.answers` states each answer with its evidence. |
 | Warehouse schema is versioned | A warehouse built by older code is refused with a prompt to rebuild, rather than failing halfway through a load. |

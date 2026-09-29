@@ -1,5 +1,5 @@
 -- Warehouse schema. Needs SQLite 3.39+ for FULL OUTER JOIN in the recon layer.
-PRAGMA user_version = 3;  -- bump on any change so src/db.py asks for a rebuild
+PRAGMA user_version = 4;  -- bump on any change so src/db.py asks for a rebuild
 PRAGMA foreign_keys = ON;
 
 -- One row per security, keyed on the current JSE alpha code; ISIN should replace it once populated.
@@ -92,8 +92,43 @@ CREATE TABLE IF NOT EXISTS stg_price (
     unit_anomaly    TEXT CHECK (unit_anomaly IN ('too_small', 'too_large')),
     ratio_ref1      REAL,  -- close divided by the nearest bar
     ratio_ref2      REAL,  -- close divided by the second-nearest reference bar
+    stale_days      INTEGER,  -- consecutive sessions with this exact close, ending at this bar
     run_id          TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS ix_stg_price_lookup ON stg_price (source, snapshot_date, vendor_symbol, price_date);
 CREATE INDEX IF NOT EXISTS ix_stg_price_key ON stg_price (security_id, price_date);
+
+-- One comparison of side A against side B; the id is deterministic, so a rerun replaces it.
+CREATE TABLE IF NOT EXISTS recon_run (
+    recon_run_id    TEXT PRIMARY KEY,
+    recon_name      TEXT NOT NULL,
+    source_a        TEXT NOT NULL,
+    snapshot_a      TEXT NOT NULL,
+    source_b        TEXT NOT NULL,
+    snapshot_b      TEXT NOT NULL,
+    window_start    TEXT NOT NULL,
+    window_end      TEXT NOT NULL,
+    abs_floor_zar   REAL NOT NULL,
+    rel_pct         REAL NOT NULL,
+    run_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Every key compared, matched or not, with both values and the rule that decided it.
+CREATE TABLE IF NOT EXISTS recon_result (
+    recon_run_id  TEXT NOT NULL REFERENCES recon_run (recon_run_id),
+    key_id        TEXT NOT NULL,  -- security_id, or UNMAPPED:<vendor symbol>
+    price_date    TEXT NOT NULL,
+    status        TEXT NOT NULL
+                  CHECK (status IN ('MATCH', 'VAL', 'ONE_A', 'ONE_B', 'DUP', 'UNIT', 'CAL', 'STALE')),
+    close_a       REAL,
+    close_b       REAL,
+    diff_zar      REAL,
+    diff_pct      REAL,
+    rows_a        INTEGER,
+    rows_b        INTEGER,
+    explanation   TEXT,
+    PRIMARY KEY (recon_run_id, key_id, price_date)
+);
+
+CREATE INDEX IF NOT EXISTS ix_recon_result_status ON recon_result (recon_run_id, status);

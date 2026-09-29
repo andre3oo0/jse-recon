@@ -2,7 +2,8 @@ import re
 import sqlite3
 from pathlib import Path
 
-from src.config import DB_PATH, SQL_DIR
+from src import config
+from src.config import SQL_DIR
 
 MIN_SQLITE = (3, 39, 0)  # FULL OUTER JOIN
 SCHEMA = SQL_DIR / "00_schema.sql"
@@ -16,7 +17,8 @@ def schema_version() -> int:
     return int(re.search(r"PRAGMA user_version = (\d+)", SCHEMA.read_text(encoding="utf-8")).group(1))
 
 
-def connect(path: Path = DB_PATH) -> sqlite3.Connection:
+def connect(path: Path | None = None) -> sqlite3.Connection:
+    path = path or config.DB_PATH  # read at call time, so a redirected DB_PATH is honoured
     if sqlite3.sqlite_version_info < MIN_SQLITE:
         raise RuntimeError(
             f"SQLite {sqlite3.sqlite_version} is too old; the recon layer "

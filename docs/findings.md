@@ -28,13 +28,17 @@ incident rather than anything the companies did.
 (0.94%, or R9,434, per name), a NAV struck from these bars would have
 been:
 
-| Date | NAV misstatement | vs a 1bp restatement threshold | On R1m |
+| Date | NAV misstatement | vs ASISA's 0.5% materiality tolerance | On R1m |
 |---|---|---|---|
-| 2025-01-10 | −654bp (−6.54%) | 654x | −R65,374 |
-| 2025-04-25 | −280bp (−2.80%) | 280x | −R28,022 |
+| 2025-01-10 | −654bp (−6.54%) | 13.1x | −R65,374 |
+| 2025-04-25 | −280bp (−2.80%) | 5.6x | −R28,022 |
 
 The fund is illustrative, not a real holding. The true price is taken
-as the midpoint of the neighbouring sessions.
+as the midpoint of the neighbouring sessions. The tolerance is from the
+ASISA Standard on NAV calculation for CIS portfolios, s10.3.3: "The
+suggested maximum tolerance for the materiality of an error is 0,5%
+based on the NAV price".
+[Source](https://asisa.org.za/media/om5kbuwu/asisa-standard-nav-calculation-for-cis-portfolios-november-2015.pdf)
 
 **Consequences for the engine.**
 - `UNIT` is a real break type, not a hypothetical. The seeded break
@@ -159,3 +163,49 @@ evening of the 28th from this source would have had no closing prices for the da
   restatement recon to find.
 - One late session does not show that Yahoo is routinely late. The daily data quality report
   will show whether it recurs.
+
+## 2026-09-29: reconciliation engine
+
+### 9. Three months of history was not rewritten
+
+A preview of tomorrow's restatement recon: the committed 10:12 snapshot against a fresh fetch at
+14:15, both covering 29 June to 28 September. The fresh fetch was held in a scratch warehouse and
+never landed.
+
+- **All 6,678 prices both fetches covered matched exactly**, with a largest difference of R0.00.
+- **106 breaks, all `ONE_B` on 2026-09-28**: the late session from finding 8, now caught by the
+  recon itself rather than only by the calendar check.
+
+The first version reported 170 breaks. The other 64 were NTU, which joined the universe after the
+10:12 snapshot and so was never requested on side A. That is a scope difference, not a vendor
+error, so the recon now compares only securities both runs requested and lists the rest
+separately. Without that rule, every universe change would appear as a wall of breaks.
+
+### 10. The industry standard asks for exactly these checks
+
+Section 4.2.1 of the ASISA NAV standard says prices should be validated "for reasonability through
+actions such as: (i) Comparing multiple sources; and (ii) Reviewing the price against the previous"
+price. The unit check does the second with one source; the reconciliation engine does the first as
+soon as a second source is available.
+
+### 11. The late day would have caused a material error
+
+Section 4.2.2 of the ASISA standard: "Where prices at the most recent valuation point are not
+available for any reason the most recent available price may be used subject to verification that
+this is fair and reasonable in the circumstances."
+
+So the realistic failure on 28 September was not a fund with no prices, which anyone would notice.
+It was a fund quietly valued at Friday's prices. That Monday, gold and platinum miners fell:
+
+| Security | Friday 25 Sep | Monday 28 Sep | Error if Friday's price is used |
+|---|---|---|---|
+| Gold Fields | R657.52 | R578.40 (6.51m shares, 3.1x the previous four sessions' average) | +13.7% |
+| Harmony | R305.64 | R289.26 | +5.7% |
+| Valterra Platinum | R1,317.17 | R1,250.47 | +5.3% |
+
+Across an equal-weighted fund of the 107 securities, using Friday's prices would have overstated
+NAV by **61bp (0.61%)**, 1.2 times the 0.5% materiality tolerance. The volume on the 28th confirms
+these were real trades, not another glitch.
+
+`python -m src.answers` now costs every late session this way, using the day before's prices from
+the later snapshot.

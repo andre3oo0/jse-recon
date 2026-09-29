@@ -2,7 +2,7 @@
 INSERT INTO stg_price (
     source, snapshot_date, security_id, vendor_symbol, price_date,
     close_zar, adj_close_zar, volume, reported_unit, unit_factor,
-    is_trading_day, unit_anomaly, ratio_ref1, ratio_ref2, run_id
+    is_trading_day, unit_anomaly, ratio_ref1, ratio_ref2, stale_days, run_id
 )
 WITH mapped AS (
     SELECT
@@ -37,6 +37,15 @@ refs AS (
             ELSE n.prev2
         END AS ratio_ref2
     FROM neighbours n
+),
+-- Gaps and islands: bars in an unbroken run of the same close share a run_grp
+runs AS (
+    SELECT
+        f.*,
+        ROW_NUMBER() OVER (PARTITION BY f.source, f.snapshot_date, f.vendor_symbol ORDER BY f.price_date)
+      - ROW_NUMBER() OVER (PARTITION BY f.source, f.snapshot_date, f.vendor_symbol, f.close ORDER BY f.price_date)
+        AS run_grp
+    FROM refs f
 )
 SELECT
     f.source,
@@ -59,6 +68,9 @@ SELECT
     END,
     f.ratio_ref1,
     f.ratio_ref2,
+    ROW_NUMBER() OVER (
+        PARTITION BY f.source, f.snapshot_date, f.vendor_symbol, f.close, f.run_grp ORDER BY f.price_date
+    ),
     f.run_id
-FROM refs f
+FROM runs f
 LEFT JOIN trading_calendar c ON c.cal_date = f.price_date

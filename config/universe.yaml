@@ -1,0 +1,156 @@
+# Reconciliation universe: JSE Top 40 plus liquid mid caps, across every
+# major sector so sector caps (project 3) have something to bite on.
+#
+# security_id is the JSE alpha code and is the internal golden key.
+# Vendor symbols (SOL.JO, sol.za, EQU.ZA.SOL) live in security_xref.
+#
+# Sector is a working classification, not official ICB. Verify before
+# relying on it for sector-cap compliance.
+#
+# Codes that stop returning data are resolved here, never deleted:
+# a renamed code is replaced and noted, a delisted one is marked
+# status: retired with the evidence in status_note. Optional fields:
+# isin, status (active | retired | unresolved), status_note. Only ISINs
+# confirmed against a source are filled in.
+
+exchange: JSE
+vendor_suffix:
+  yahoo: ".JO"
+
+securities:
+  # Technology, telecoms, media
+  - { security_id: NPN, name: Naspers,                    sector: Technology }
+  - { security_id: PRX, name: Prosus,                     sector: Technology }
+  - { security_id: DTC, name: Datatec,                    sector: Technology }
+  - { security_id: MTN, name: MTN Group,                  sector: Telecommunications }
+  - { security_id: VOD, name: Vodacom Group,              sector: Telecommunications }
+  - { security_id: TKG, name: Telkom,                     sector: Telecommunications }
+  - { security_id: BLU, name: Blue Label Telecoms,        sector: Telecommunications }
+  - { security_id: MCG, name: MultiChoice Group,          sector: Consumer Discretionary,
+      status: retired, status_note: "Delisted 2025-12-10 after Canal+ takeover" }
+
+  # Basic materials
+  - { security_id: BHG, name: BHP Group,                  sector: Basic Materials }
+  - { security_id: AGL, name: Anglo American,             sector: Basic Materials }
+  - { security_id: GLN, name: Glencore,                   sector: Basic Materials }
+  - { security_id: S32, name: South32,                    sector: Basic Materials }
+  - { security_id: VAL, name: Valterra Platinum,          sector: Basic Materials,
+      status_note: "Formerly Anglo American Platinum (AMS); AMS.JO returns no data" }
+  - { security_id: IMP, name: Impala Platinum,            sector: Basic Materials }
+  - { security_id: SSW, name: Sibanye-Stillwater,         sector: Basic Materials }
+  - { security_id: NPH, name: Northam Platinum,           sector: Basic Materials }
+  - { security_id: GFI, name: Gold Fields,                sector: Basic Materials }
+  - { security_id: ANG, name: AngloGold Ashanti,          sector: Basic Materials }
+  - { security_id: HAR, name: Harmony Gold,               sector: Basic Materials }
+  - { security_id: DRD, name: DRDGOLD,                    sector: Basic Materials }
+  - { security_id: PAN, name: Pan African Resources,      sector: Basic Materials }
+  - { security_id: KIO, name: Kumba Iron Ore,             sector: Basic Materials }
+  - { security_id: EXX, name: Exxaro Resources,           sector: Basic Materials }
+  - { security_id: ARI, name: African Rainbow Minerals,   sector: Basic Materials }
+  - { security_id: MRF, name: Merafe Resources,           sector: Basic Materials }
+  - { security_id: SOL, name: Sasol,                      sector: Basic Materials }
+  - { security_id: SAP, name: Sappi,                      sector: Basic Materials }
+  - { security_id: MNP, name: Mondi,                      sector: Basic Materials }
+  - { security_id: AFE, name: AECI,                       sector: Basic Materials }
+  - { security_id: OMN, name: Omnia Holdings,             sector: Basic Materials }
+
+  # Energy
+  - { security_id: THA, name: Thungela Resources,         sector: Energy }
+
+  # Financials
+  - { security_id: FSR, name: FirstRand,                  sector: Financials }
+  - { security_id: SBK, name: Standard Bank Group,        sector: Financials }
+  - { security_id: ABG, name: Absa Group,                 sector: Financials }
+  - { security_id: NED, name: Nedbank Group,              sector: Financials }
+  - { security_id: CPI, name: Capitec Bank,               sector: Financials }
+  - { security_id: INL, name: Investec Ltd,               sector: Financials }
+  - { security_id: INP, name: Investec plc,               sector: Financials }
+  - { security_id: DSY, name: Discovery,                  sector: Financials }
+  - { security_id: SLM, name: Sanlam,                     sector: Financials }
+  - { security_id: OMU, name: Old Mutual,                 sector: Financials }
+  - { security_id: MTM, name: Momentum Group,             sector: Financials }
+  - { security_id: SNT, name: Santam,                     sector: Financials }
+  - { security_id: OUT, name: OUTsurance Group,           sector: Financials }
+  - { security_id: REM, name: Remgro,                     sector: Financials }
+  - { security_id: RNI, name: Reinet Investments,         sector: Financials }
+  - { security_id: KST, name: PSG Financial Services,     sector: Financials }
+  - { security_id: CML, name: Coronation Fund Managers,   sector: Financials }
+  - { security_id: JSE, name: JSE Ltd,                    sector: Financials }
+  - { security_id: NY1, name: Ninety One Ltd,             sector: Financials }
+  - { security_id: QLT, name: Quilter,                    sector: Financials }
+  - { security_id: TCP, name: Transaction Capital,        sector: Financials, isin: ZAE000167391,
+      status: retired, status_note: "Renamed to Nutun (NTU) 2025-03-18; see NTU" }
+  - { security_id: NTU, name: Nutun,                      sector: Industrials, isin: ZAE000167391,
+      status_note: "Formerly Transaction Capital (TCP), renamed 2025-03-18, ISIN unchanged. Yahoo files the full TCP history under NTU.JO" }
+  - { security_id: HCI, name: Hosken Consolidated,        sector: Financials }
+  - { security_id: SYG, name: Sygnia,                     sector: Financials }
+
+  # Consumer staples
+  - { security_id: SHP, name: Shoprite,                   sector: Consumer Staples }
+  - { security_id: PIK, name: Pick n Pay,                 sector: Consumer Staples }
+  - { security_id: SPP, name: SPAR Group,                 sector: Consumer Staples }
+  - { security_id: BID, name: Bid Corporation,            sector: Consumer Staples }
+  - { security_id: TBS, name: Tiger Brands,               sector: Consumer Staples }
+  - { security_id: AVI, name: AVI,                        sector: Consumer Staples }
+  - { security_id: RCL, name: RCL Foods,                  sector: Consumer Staples }
+  - { security_id: ARL, name: Astral Foods,               sector: Consumer Staples }
+  - { security_id: BTI, name: British American Tobacco,   sector: Consumer Staples }
+  - { security_id: CLS, name: Clicks Group,               sector: Consumer Staples }
+  - { security_id: DCP, name: Dis-Chem Pharmacies,        sector: Consumer Staples }
+  - { security_id: OCE, name: Oceana Group,               sector: Consumer Staples }
+
+  # Consumer discretionary
+  - { security_id: CFR, name: Richemont,                  sector: Consumer Discretionary }
+  - { security_id: WHL, name: Woolworths,                 sector: Consumer Discretionary }
+  - { security_id: TFG, name: The Foschini Group,         sector: Consumer Discretionary }
+  - { security_id: MRP, name: Mr Price Group,             sector: Consumer Discretionary }
+  - { security_id: TRU, name: Truworths,                  sector: Consumer Discretionary }
+  - { security_id: PPH, name: Pepkor,                     sector: Consumer Discretionary }
+  - { security_id: LEW, name: Lewis Group,                sector: Consumer Discretionary }
+  - { security_id: CSB, name: Cashbuild,                  sector: Consumer Discretionary }
+  - { security_id: ITE, name: Italtile,                   sector: Consumer Discretionary }
+  - { security_id: SUI, name: Sun International,          sector: Consumer Discretionary }
+  - { security_id: TSG, name: Tsogo Sun,                  sector: Consumer Discretionary }
+  - { security_id: FBR, name: Famous Brands,              sector: Consumer Discretionary }
+  - { security_id: MTH, name: Motus Holdings,             sector: Consumer Discretionary }
+  - { security_id: CMH, name: Combined Motor Holdings,    sector: Consumer Discretionary }
+  - { security_id: ADH, name: ADvTECH,                    sector: Consumer Discretionary }
+  - { security_id: CLH, name: City Lodge Hotels,          sector: Consumer Discretionary }
+
+  # Industrials
+  - { security_id: BVT, name: Bidvest Group,              sector: Industrials }
+  - { security_id: BAW, name: Barloworld,                 sector: Industrials,
+      status: retired, status_note: "Delisted 2026-01-27 after Entsha consortium takeover" }
+  - { security_id: KAP, name: KAP Ltd,                    sector: Industrials }
+  - { security_id: PPC, name: PPC Ltd,                    sector: Industrials }
+  - { security_id: RLO, name: Reunert,                    sector: Industrials }
+  - { security_id: WBO, name: Wilson Bayly Holmes-Ovcon,  sector: Industrials }
+  - { security_id: HDC, name: Hudaco Industries,          sector: Industrials }
+  - { security_id: GND, name: Grindrod,                   sector: Industrials }
+  - { security_id: SPG, name: Super Group,                sector: Industrials }
+  - { security_id: MUR, name: Murray & Roberts,           sector: Industrials,
+      status: retired, status_note: "Holding company in final liquidation; left the JSE January 2026" }
+  - { security_id: RBX, name: Raubex Group,               sector: Industrials }
+  - { security_id: ARH, name: ARB Holdings,               sector: Industrials, isin: ZAE000109435,
+      status: retired, status_note: "Listing reported inactive; delisting date not yet verified" }
+
+  # Health care
+  - { security_id: NTC, name: Netcare,                    sector: Health Care }
+  - { security_id: LHC, name: Life Healthcare,            sector: Health Care }
+  - { security_id: APN, name: Aspen Pharmacare,           sector: Health Care }
+
+  # Real estate
+  - { security_id: GRT, name: Growthpoint Properties,     sector: Real Estate }
+  - { security_id: RDF, name: Redefine Properties,        sector: Real Estate }
+  - { security_id: RES, name: Resilient REIT,             sector: Real Estate }
+  - { security_id: HYP, name: Hyprop Investments,         sector: Real Estate }
+  - { security_id: SAC, name: SA Corporate Real Estate,   sector: Real Estate }
+  - { security_id: FFB, name: Fortress Real Estate,       sector: Real Estate }
+  - { security_id: NRP, name: NEPI Rockcastle,            sector: Real Estate }
+  - { security_id: EQU, name: Equites Property Fund,      sector: Real Estate }
+  - { security_id: VKE, name: Vukile Property Fund,       sector: Real Estate }
+  - { security_id: ATT, name: Attacq,                     sector: Real Estate }
+  - { security_id: EMI, name: Emira Property Fund,        sector: Real Estate }
+  - { security_id: SRE, name: Sirius Real Estate,         sector: Real Estate }
+  - { security_id: MSP, name: MAS plc,                    sector: Real Estate }
+  - { security_id: FTB, name: Fairvest,                   sector: Real Estate }

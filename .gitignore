@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+
+# Landed snapshots and the warehouse are rebuilt locally, not versioned.
+data/landing/*
+!data/landing/.gitkeep
+data/*.db
+data/*.db-journal
+
+reports/*
+!reports/.gitkeep

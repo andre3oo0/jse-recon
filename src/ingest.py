@@ -1,6 +1,6 @@
 """Take today's snapshot from a vendor, land it, and load it.
 
-    python -m src.ingest                 # yahoo, 1y lookback
+    python -m src.ingest                 # yahoo, 3mo lookback
     python -m src.ingest --period 5y     # deeper backfill
     python -m src.ingest --refetch       # replace today's landed file
 
@@ -16,6 +16,9 @@ A snapshot holds completed sessions only. Taken before SESSION_FINAL on
 its snapshot date, it drops that day's bar, which is still moving, and
 records how many rows it dropped. Otherwise an immutable landing file
 would preserve an intraday price as if it were the close.
+
+A snapshot that fails the coverage gate is not landed. Because landing
+is immutable, recording a blocked or broken fetch would lock it in.
 """
 
 import argparse
@@ -42,6 +45,13 @@ SAST = timezone(timedelta(hours=2))
 # publication take a little longer.
 SESSION_FINAL = time(17, 30)
 
+PRICES_FILE = "prices.csv.gz"
+MANIFEST_FILE = "manifest.json"
+
+
+class IncompleteSnapshot(Exception):
+    pass
+
 
 def completed_sessions(prices: pd.DataFrame, snapshot_date: str, now: datetime) -> pd.DataFrame:
     snap = datetime.fromisoformat(snapshot_date).date()
@@ -59,11 +69,17 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def land(source: PriceSource, symbols, period, snapshot_date, refetch, now=None):
+def write_prices(prices: pd.DataFrame, path: Path) -> None:
+    # mtime=0 keeps the gzip header free of a timestamp, so identical
+    # content always produces an identical file and hash.
+    prices.to_csv(path, index=False, compression={"method": "gzip", "mtime": 0})
+
+
+def land(source: PriceSource, symbols, period, snapshot_date, refetch, now=None, min_coverage=0.0):
     """Fetch and write the landing files, or reuse them if already there."""
     now = now or datetime.now(SAST)
     out = landing_dir(source.name, snapshot_date)
-    prices_path, manifest_path = out / "prices.csv", out / "manifest.json"
+    prices_path, manifest_path = out / PRICES_FILE, out / MANIFEST_FILE
 
     if prices_path.exists() and not refetch:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -72,11 +88,20 @@ def land(source: PriceSource, symbols, period, snapshot_date, refetch, now=None)
 
     fetched_at = now.astimezone(timezone.utc).isoformat(timespec="seconds")
     fetched, statuses = source.fetch(symbols, period)
-    prices = completed_sessions(fetched, snapshot_date, now)
 
+    returned = sum(s.status == "ok" for s in statuses)
+    if symbols and returned / len(symbols) < min_coverage:
+        failed = ", ".join(s.vendor_symbol for s in statuses if s.status != "ok")
+        raise IncompleteSnapshot(
+            f"{source.name} returned {returned}/{len(symbols)} symbols, below the "
+            f"{min_coverage:.0%} gate. Nothing landed. Failed: {failed}"
+        )
+
+    prices = completed_sessions(fetched, snapshot_date, now)
     out.mkdir(parents=True, exist_ok=True)
-    prices.to_csv(prices_path, index=False)
+    write_prices(prices, prices_path)
     manifest = {
+        "run_id": str(uuid.uuid4()),
         "source": source.name,
         "snapshot_date": snapshot_date,
         "fetched_at": fetched_at,
@@ -86,21 +111,21 @@ def land(source: PriceSource, symbols, period, snapshot_date, refetch, now=None)
         "sha256": sha256(prices_path),
         "symbols": [s.__dict__ for s in statuses],
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    # LF on every OS, so a snapshot's manifest is byte-identical wherever it was taken.
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
     return prices_path, manifest
 
 
 def load(conn: sqlite3.Connection, prices_path: Path, manifest: dict) -> str:
     """Replace the source + snapshot_date partition in one transaction."""
-    source, snapshot_date = manifest["source"], manifest["snapshot_date"]
+    if sha256(prices_path) != manifest["sha256"]:
+        raise RuntimeError(f"{prices_path} does not match its manifest hash; landing was modified.")
+
+    source, snapshot_date, run_id = manifest["source"], manifest["snapshot_date"], manifest["run_id"]
     statuses = [SymbolStatus(**s) for s in manifest["symbols"]]
     prices = pd.read_csv(prices_path, dtype={"vendor_symbol": str, "price_date": str})
     prices = prices[PRICE_COLUMNS]
 
-    if sha256(prices_path) != manifest["sha256"]:
-        raise RuntimeError(f"{prices_path} does not match its manifest hash; landing was modified.")
-
-    run_id = str(uuid.uuid4())
     with conn:
         stale_runs = [
             r[0]
@@ -130,7 +155,7 @@ def load(conn: sqlite3.Connection, prices_path: Path, manifest: dict) -> str:
                 len(statuses),
                 sum(s.status == "ok" for s in statuses),
                 len(prices),
-                str(prices_path.relative_to(config.ROOT)),
+                prices_path.relative_to(config.ROOT).as_posix(),
                 manifest["sha256"],
             ),
         )
@@ -187,9 +212,13 @@ def coverage_report(conn: sqlite3.Connection, run_id: str) -> None:
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--source", default="yahoo", choices=SOURCES)
-    p.add_argument("--period", default="1y", help="vendor lookback, e.g. 1y, 5y, max")
+    p.add_argument("--period", default="3mo", help="vendor lookback, e.g. 3mo, 1y, 5y, max")
     p.add_argument("--snapshot-date", default=datetime.now(SAST).date().isoformat())
     p.add_argument("--refetch", action="store_true", help="overwrite an existing landed snapshot")
+    p.add_argument(
+        "--min-coverage", type=float, default=0.90,
+        help="refuse to land if fewer than this share of symbols return data",
+    )
     args = p.parse_args(argv)
 
     source = SOURCES[args.source]()
@@ -198,7 +227,14 @@ def main(argv=None) -> int:
     security_master.sync(conn, [source])
     symbols = security_master.active_symbols(conn, source.name)
 
-    prices_path, manifest = land(source, symbols, args.period, args.snapshot_date, args.refetch)
+    try:
+        prices_path, manifest = land(
+            source, symbols, args.period, args.snapshot_date, args.refetch,
+            min_coverage=args.min_coverage,
+        )
+    except IncompleteSnapshot as exc:
+        print(f"FAILED: {exc}", file=sys.stderr)
+        return 2
     run_id = load(conn, prices_path, manifest)
     coverage_report(conn, run_id)
     return 0

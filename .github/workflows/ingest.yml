@@ -1,0 +1,94 @@
+name: ingest
+
+# Daily end-of-day snapshot. Code comes from main; snapshots are committed
+# to the `snapshots` branch, because runners are discarded after each job
+# and landing is the only durable record. The warehouse is rebuilt from
+# snapshots wherever it is needed (python -m src.rebuild).
+
+on:
+  schedule:
+    # 16:30 UTC is 18:30 SAST, an hour after the JSE close. GitHub may
+    # start scheduled jobs late, which only moves the run further past it.
+    - cron: "30 16 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      period:
+        description: Vendor lookback
+        type: choice
+        options: [3mo, 1y, 5y, max]
+        default: 3mo
+      refetch:
+        description: Replace today's snapshot if it already exists
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+# Two runs writing the same snapshot branch at once would race on push.
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check out snapshots into data/landing
+        uses: actions/checkout@v5
+        with:
+          ref: snapshots
+          path: data/landing
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Test
+        run: python -m unittest discover -s tests -t . -v
+
+      # Loading re-checks every stored snapshot against its manifest hash,
+      # so this doubles as a daily integrity check of the whole history.
+      - name: Verify existing snapshots
+        run: python -m src.rebuild
+
+      # Inputs go through env rather than being templated into the script,
+      # so a crafted input cannot inject shell.
+      - name: Take snapshot
+        shell: bash
+        env:
+          PERIOD: ${{ inputs.period || '3mo' }}
+          REFETCH: ${{ inputs.refetch && '--refetch' || '' }}
+        run: |
+          python -m src.ingest --period "$PERIOD" --min-coverage 0.95 $REFETCH 2>&1 | tee ingest.log
+
+      - name: Commit snapshot
+        working-directory: data/landing
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Snapshot already recorded; nothing to commit."
+            exit 0
+          fi
+          git commit -m "yahoo snapshot $(TZ=Africa/Johannesburg date +%F)"
+          git push origin snapshots
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Ingest"
+            echo '```'
+            cat ingest.log 2>/dev/null || echo "Snapshot step did not run."
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

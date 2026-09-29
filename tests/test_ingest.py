@@ -115,10 +115,31 @@ class IngestTest(unittest.TestCase):
 
     def test_tampered_landing_file_is_rejected(self):
         path, _ = self.run_ingest()
-        path.write_text(path.read_text() + "AAA.F,2026-09-30,1,1,1,1,1,1,0,0,ZAc\n")
+        path.write_bytes(path.read_bytes() + b"\x00")
         _, manifest = ingest.land(self.source, [], "5d", "2026-09-29", refetch=False, now=self.AFTER_CLOSE)
         with self.assertRaisesRegex(RuntimeError, "manifest hash"):
             ingest.load(self.conn, path, manifest)
+
+    def test_identical_content_lands_identical_bytes(self):
+        # The manifest hash is only a tamper check if a refetch of the same
+        # data reproduces it; a timestamp in the gzip header would not.
+        args = (self.source, ["AAA.F", "BBB.F"], "5d", "2026-09-29")
+        _, first = ingest.land(*args, refetch=False, now=self.AFTER_CLOSE)
+        _, second = ingest.land(*args, refetch=True, now=self.AFTER_CLOSE)
+        self.assertEqual(first["sha256"], second["sha256"])
+
+    def test_below_coverage_gate_lands_nothing(self):
+        with self.assertRaises(ingest.IncompleteSnapshot):
+            ingest.land(
+                self.source, ["AAA.F", "BBB.F"], "5d", "2026-09-29", False,
+                now=self.AFTER_CLOSE, min_coverage=0.9,
+            )
+        self.assertFalse(ingest.landing_dir("fake", "2026-09-29").exists())
+
+    def test_reload_keeps_the_landed_run_id(self):
+        _, run_id = self.run_ingest()
+        _, again = self.run_ingest()
+        self.assertEqual(run_id, again)
 
 
 if __name__ == "__main__":

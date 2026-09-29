@@ -54,7 +54,7 @@ percentage, set per source pair and per field in
 | # | Phase | Status |
 |---|---|---|
 | 0 | Scaffold, SQLite warehouse, config | Done |
-| 1 | Source adapter contract, Yahoo adapter, landing, ingest audit | Done, first snapshot 2026-09-29 |
+| 1 | Source adapter contract, Yahoo adapter, landing, ingest audit, scheduled ingest | Done, first snapshot 2026-09-29 |
 | 2 | Security master (done: statuses, renames), trading calendar, staging normalisation | Partly done |
 | 3 | Recon engine: full outer join, tolerances, classification | |
 | 4 | Break store: lifecycle, idempotent upsert, ageing | |
@@ -73,6 +73,11 @@ If time runs short, cut phase 8 before phase 5.
 | Wide universe (111 codes, all sectors) | Coverage gaps become findings, and project 3 needs sector spread for sector caps. |
 | Landing is immutable | A re-run must not change what a vendor was recorded as saying. Refetch is explicit. |
 | Snapshots carry full lookback | Overlapping history between snapshots makes restatement recon possible with a single vendor. |
+| Daily lookback is 3 months | Enough overlap for restatement recon, at roughly 140 KB a day compressed. The 5-year backfill was taken once. |
+| Scheduled by GitHub Actions, stored on a `snapshots` branch | Runners are discarded after each job, so the snapshot must be committed somewhere durable. A separate orphan branch keeps data commits out of the code history. |
+| Landing is gzipped | Git on Windows rewrites text line endings, which would break every manifest hash. A binary file is stored byte for byte. |
+| Coverage gate before landing | Cloud runner IPs get rate-limited by Yahoo. A mostly empty fetch must fail the job, not become a permanent snapshot. |
+| Warehouse is derived, never committed | `src.rebuild` recreates it from snapshots, and in CI that doubles as a daily hash check of the whole history. |
 | Completed sessions only | Before 17:30 SAST on the snapshot date, that day's bar is excluded, so an intraday price is never preserved as a close. |
 | No primary key on `raw_price` | Vendor duplicates must reach the recon as `DUP` breaks, not vanish on load. Idempotency is by partition instead. |
 | Adapters return unconverted data | Unit and symbol conversion happen in staging, where they are visible and testable. |

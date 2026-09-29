@@ -33,14 +33,20 @@ Requires Python 3.10+ and SQLite 3.39+ (bundled with recent Python).
 
 ```bash
 pip install -r requirements.txt
-python -m src.ingest --period 5y     # first run: backfill
-python -m src.ingest                 # daily, after 17:30 SAST
+git worktree add data/landing snapshots   # the snapshot history
+python -m src.rebuild                     # warehouse from every snapshot
 python -m unittest discover -s tests -t .
 ```
 
-Each run lands `data/landing/<source>/<date>/prices.csv` with a
-manifest, loads it into `data/warehouse.db`, and prints a coverage
-report listing any code that returned no data.
+Snapshots are taken by the [ingest workflow](.github/workflows/ingest.yml)
+at 18:30 SAST each weekday and committed to the `snapshots` branch.
+To catch up locally: `git -C data/landing pull && python -m src.rebuild`.
+
+To take one by hand: `python -m src.ingest` (3-month lookback, completed
+sessions only). Each snapshot lands as `<source>/<date>/prices.csv.gz`
+with a manifest, and a coverage report lists any code that returned no
+data. A fetch where under 90% of symbols return data is refused rather
+than landed.
 
 ## Layout
 

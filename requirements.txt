@@ -2,3 +2,6 @@ yfinance>=1.7
 pandas>=3.0
 pyyaml>=6.0
 openpyxl>=3.1
+requests>=2.31
+lxml>=5.0
+truststore>=0.9

@@ -1,0 +1,21 @@
+# Vendor settings; sources with a daily_batch rotate through the universe, least recently tried first.
+yahoo:
+  suffix: ".JO"
+  period: 3mo
+
+eodhd:
+  suffix: ".JSE"
+  period: 1y  # the free plan's full history, so each rotated fetch overlaps the others
+  daily_batch: 18  # the free plan allows 20 calls a day; two spare for retries
+  assumed_unit: null  # the API does not report one; staging applies this, landing keeps the silence
+
+afx:
+  url: "https://afx.kwayisi.org/jse/{code}.html"
+  period: 10d  # each page shows the last ten sessions
+  daily_batch: 22
+  crawl_delay_seconds: 60  # asked for by the site's robots.txt
+
+recon_pairs:
+  - [yahoo, eodhd]
+  - [yahoo, afx]
+  - [eodhd, afx]

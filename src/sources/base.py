@@ -27,6 +27,7 @@ class SymbolStatus:
     row_count: int
     reported_unit: str | None = None
     error: str | None = None
+    isin: str | None = None  # when the vendor publishes it alongside prices
 
 
 class PriceSource(ABC):

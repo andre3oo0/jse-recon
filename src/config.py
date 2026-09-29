@@ -23,3 +23,7 @@ def universe() -> dict:
 
 def tolerance_rules() -> dict:
     return load_yaml("tolerance_rules.yaml")
+
+
+def sources() -> dict:
+    return load_yaml("sources.yaml")

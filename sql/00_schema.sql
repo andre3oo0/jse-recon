@@ -1,5 +1,5 @@
 -- Warehouse schema. Needs SQLite 3.39+ for FULL OUTER JOIN in the recon layer.
-PRAGMA user_version = 4;  -- bump on any change so src/db.py asks for a rebuild
+PRAGMA user_version = 6;  -- bump on any change so src/db.py asks for a rebuild
 PRAGMA foreign_keys = ON;
 
 -- One row per security, keyed on the current JSE alpha code; ISIN should replace it once populated.
@@ -22,6 +22,12 @@ CREATE TABLE IF NOT EXISTS security_xref (
     valid_from     TEXT,
     valid_to       TEXT,
     PRIMARY KEY (source, vendor_symbol)
+);
+
+-- Unit to assume when a vendor reports none; loaded from config/sources.yaml at each staging build.
+CREATE TABLE IF NOT EXISTS source_unit (
+    source        TEXT PRIMARY KEY,
+    assumed_unit  TEXT
 );
 
 CREATE TABLE IF NOT EXISTS trading_calendar (
@@ -52,6 +58,7 @@ CREATE TABLE IF NOT EXISTS ingest_symbol_status (
     row_count      INTEGER NOT NULL,
     reported_unit  TEXT,
     error          TEXT,
+    isin           TEXT,  -- as published by the vendor, for checking against security_master
     PRIMARY KEY (run_id, vendor_symbol)
 );
 
@@ -86,8 +93,9 @@ CREATE TABLE IF NOT EXISTS stg_price (
     close_zar       REAL,
     adj_close_zar   REAL,
     volume          REAL,
-    reported_unit   TEXT,
-    unit_factor     REAL,  -- NULL when the reported unit is unrecognised
+    reported_unit   TEXT,  -- what the vendor said, or the configured assumption when it said nothing
+    unit_assumed    INTEGER NOT NULL DEFAULT 0,
+    unit_factor     REAL,  -- NULL when the unit is unrecognised
     is_trading_day  INTEGER,
     unit_anomaly    TEXT CHECK (unit_anomaly IN ('too_small', 'too_large')),
     ratio_ref1      REAL,  -- close divided by the nearest bar
@@ -127,6 +135,8 @@ CREATE TABLE IF NOT EXISTS recon_result (
     diff_pct      REAL,
     rows_a        INTEGER,
     rows_b        INTEGER,
+    volume_a      REAL,  -- compared for information only; vendors count off-book trades differently
+    volume_b      REAL,
     explanation   TEXT,
     PRIMARY KEY (recon_run_id, key_id, price_date)
 );

@@ -118,7 +118,8 @@ def report(conn: sqlite3.Connection, run_id: str) -> None:
     in_a, in_b = requested(conn, Side(a_src, a_snap)), requested(conn, Side(b_src, b_snap))
     for label, only in (("A", in_a - in_b), ("B", in_b - in_a)):
         if only:
-            print(f"  Not compared, requested in {label} only: {', '.join(sorted(only))}")
+            listed = ", ".join(sorted(only)) if len(only) <= 10 else f"{len(only)} securities"
+            print(f"  Not compared, requested in {label} only: {listed}")
     print(f"  {total:,} prices compared: {counts.get('MATCH', 0):,} matched "
           f"({counts.get('MATCH', 0) / total:.2%}), {breaks:,} breaks")
     for status in BREAKS:
@@ -169,14 +170,30 @@ def main(argv=None) -> int:
         report(conn, run(conn, args.name, args.a, args.b, args.tolerance or args.name))
         return 0
 
-    sources = [r[0] for r in conn.execute("SELECT DISTINCT source FROM ingest_run ORDER BY source")]
-    for source in sources:
+    settings = config.sources()
+    landed = {r[0] for r in conn.execute("SELECT DISTINCT source FROM ingest_run")}
+    # Rotated sources hold different securities in consecutive snapshots, so restatement needs a full-universe source
+    for source in sorted(s for s in landed if not settings.get(s, {}).get("daily_batch")):
         sides = restatement_sides(conn, source)
         if sides is None:
             print(f"{source}: one snapshot so far; restatement recon starts with the second")
             continue
         report(conn, run(conn, f"{source}_restatement", *sides, tolerance_key=f"{source}_restatement"))
+        print()
+
+    for source_a, source_b in settings.get("recon_pairs", []):
+        if not {source_a, source_b} <= landed:
+            print(f"{source_a}_vs_{source_b}: waiting for a snapshot from {', '.join(sorted({source_a, source_b} - landed))}")
+            continue
+        a, b = Side(source_a, latest(conn, source_a)), Side(source_b, latest(conn, source_b))
+        name = f"{source_a}_vs_{source_b}"
+        report(conn, run(conn, name, a, b, tolerance_key=name))
+        print()
     return 0
+
+
+def latest(conn: sqlite3.Connection, source: str) -> str:
+    return conn.execute("SELECT MAX(snapshot_date) FROM ingest_run WHERE source = ?", (source,)).fetchone()[0]
 
 
 if __name__ == "__main__":

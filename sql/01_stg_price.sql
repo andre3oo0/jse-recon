@@ -1,15 +1,20 @@
 -- Map symbols to securities, convert to rands, attach the calendar, and flag (never repair) unit anomalies.
 INSERT INTO stg_price (
     source, snapshot_date, security_id, vendor_symbol, price_date,
-    close_zar, adj_close_zar, volume, reported_unit, unit_factor,
+    close_zar, adj_close_zar, volume, reported_unit, unit_assumed, unit_factor,
     is_trading_day, unit_anomaly, ratio_ref1, ratio_ref2, stale_days, run_id
 )
-WITH mapped AS (
+WITH unit AS (
+    SELECT r.*, COALESCE(r.reported_unit, u.assumed_unit) AS unit, r.reported_unit IS NULL AND u.assumed_unit IS NOT NULL AS unit_assumed
+    FROM raw_price r
+    LEFT JOIN source_unit u ON u.source = r.source
+),
+mapped AS (
     SELECT
         r.*,
         x.security_id,
-        CASE r.reported_unit WHEN 'ZAc' THEN 0.01 WHEN 'ZAR' THEN 1.0 END AS unit_factor
-    FROM raw_price r
+        CASE r.unit WHEN 'ZAc' THEN 0.01 WHEN 'ZAR' THEN 1.0 END AS unit_factor
+    FROM unit r
     LEFT JOIN security_xref x
         ON  x.source = r.source
         AND x.vendor_symbol = r.vendor_symbol
@@ -56,7 +61,8 @@ SELECT
     f.close * f.unit_factor,
     f.adj_close * f.unit_factor,
     f.volume,
-    f.reported_unit,
+    f.unit,
+    f.unit_assumed,
     f.unit_factor,
     c.is_trading_day,
     -- ~100x off both references is a unit glitch; a real consolidation moves once, so one reference clears it

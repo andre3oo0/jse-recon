@@ -13,6 +13,11 @@ def build(conn: sqlite3.Connection) -> int:
     band = config.tolerance_rules()["dq"]["unit_ratio_band"]
     trading_calendar.load(conn)
     with conn:
+        conn.execute("DELETE FROM source_unit")
+        conn.executemany(
+            "INSERT INTO source_unit VALUES (?, ?)",
+            [(name, s.get("assumed_unit")) for name, s in config.sources().items() if isinstance(s, dict)],
+        )
         conn.execute("DELETE FROM stg_price")
         conn.execute(
             (config.SQL_DIR / "01_stg_price.sql").read_text(encoding="utf-8"),

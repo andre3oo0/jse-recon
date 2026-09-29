@@ -1,8 +1,6 @@
 # JSE Top 40 plus mid caps; sectors are approximate, and codes are retired with evidence, never deleted.
 
 exchange: JSE
-vendor_suffix:
-  yahoo: ".JO"
 
 securities:
   # Technology, telecoms, media

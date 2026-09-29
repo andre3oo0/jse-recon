@@ -1,10 +1,13 @@
 # A difference is a break only when it clears BOTH the absolute floor (in rands) and the percentage.
 
 price_recon:
-  yahoo_vs_stooq:
-    close:     { abs_floor_zar: 0.05, rel_pct: 0.50 }
-    adj_close: { abs_floor_zar: 0.05, rel_pct: 0.50 }
-    volume:    { abs_floor: 1000,     rel_pct: 5.00 }
+  # Independent vendors reporting the same official close should agree to the cent.
+  yahoo_vs_eodhd:
+    close: { abs_floor_zar: 0.01, rel_pct: 0.05 }
+  yahoo_vs_afx:
+    close: { abs_floor_zar: 0.01, rel_pct: 0.05 }
+  eodhd_vs_afx:
+    close: { abs_floor_zar: 0.01, rel_pct: 0.05 }
 
   # Same vendor, consecutive snapshots: history should not move, so any change is a restatement.
   yahoo_restatement:

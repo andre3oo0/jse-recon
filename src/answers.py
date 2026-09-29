@@ -169,7 +169,63 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
                    f"{days} sessions to {end}. Each needs checking against a trading suspension.")
     else:
         out.append(f"   None frozen for {stale_days}+ sessions.")
+    out.append("7. Do independent sources agree?")
+    out.extend(cross_source(conn) or ["   Waiting for the first snapshots from the other sources."])
     return out
+
+
+def cross_source(conn: sqlite3.Connection) -> list[str]:
+    lines = []
+    runs = conn.execute(
+        """
+        SELECT recon_run_id, recon_name, source_a, source_b, snapshot_b
+        FROM recon_run r
+        WHERE recon_name LIKE '%\\_vs\\_%' ESCAPE '\\'
+          AND run_at = (SELECT MAX(run_at) FROM recon_run WHERE recon_name = r.recon_name)
+        ORDER BY recon_name
+        """
+    ).fetchall()
+    for run_id, _, source_a, source_b, snap_b in runs:
+        securities, compared, matched, vol_known, vol_differ = conn.execute(
+            """
+            SELECT COUNT(DISTINCT key_id),
+                   COUNT(*),
+                   SUM(status = 'MATCH'),
+                   SUM(status = 'MATCH' AND volume_a IS NOT NULL AND volume_b IS NOT NULL),
+                   SUM(status = 'MATCH' AND volume_a <> volume_b)
+            FROM recon_result
+            WHERE recon_run_id = ? AND status NOT IN ('ONE_A', 'ONE_B', 'CAL')
+            """,
+            (run_id,),
+        ).fetchone()
+        breaks = conn.execute(
+            "SELECT status, COUNT(*) FROM recon_result WHERE recon_run_id = ? AND status <> 'MATCH' "
+            "GROUP BY status ORDER BY COUNT(*) DESC",
+            (run_id,),
+        ).fetchall()
+        if not compared:
+            lines.append(f"   {source_a} vs {source_b}: no securities in common yet.")
+            continue
+        detail = ", ".join(f"{s} {n}" for s, n in breaks) or "none"
+        volume = f" Volumes differed on {vol_differ / vol_known:.0%} of matched days." if vol_known else ""
+        lines.append(f"   {source_a} vs {source_b} ({securities} securities, to {snap_b}): {matched or 0:,} of "
+                     f"{compared:,} closes agree ({(matched or 0) / compared:.1%}); breaks: {detail}.{volume}")
+
+    observed = conn.execute(
+        """
+        SELECT COUNT(DISTINCT x.security_id),
+               COUNT(DISTINCT CASE WHEN m.isin IS NOT NULL AND m.isin <> s.isin THEN x.security_id END)
+        FROM ingest_symbol_status s
+        JOIN ingest_run r ON r.run_id = s.run_id
+        JOIN security_xref x ON x.source = r.source AND x.vendor_symbol = s.vendor_symbol
+        JOIN security_master m ON m.security_id = x.security_id
+        WHERE s.isin IS NOT NULL
+        """
+    ).fetchone()
+    if observed[0]:
+        lines.append(f"   ISINs published by vendors: {observed[0]} securities, {observed[1]} disagreeing with the "
+                     f"security master.")
+    return lines
 
 
 def main() -> int:

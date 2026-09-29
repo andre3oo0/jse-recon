@@ -3,8 +3,9 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from src import db, staging
+from src import config, db, staging
 
 
 class StagingTest(unittest.TestCase):
@@ -59,6 +60,15 @@ class StagingTest(unittest.TestCase):
     def test_cents_become_rands(self):
         self.bars("AAA.V", {"2026-09-25": 22998})
         self.assertAlmostEqual(self.staged("AAA.V")["2026-09-25"][1], 229.98)
+
+    def test_assumed_unit_applies_only_where_the_vendor_said_nothing(self):
+        self.bars("AAA.V", {"2026-09-25": 22998}, unit=None)
+        self.bars("ZZZ.V", {"2026-09-25": 229.98}, unit="ZAR")
+        with mock.patch.object(config, "sources", return_value={"v": {"assumed_unit": "ZAc"}}):
+            staging.build(self.conn)
+        rows = dict(((sym, (unit, assumed, round(close, 2))) for sym, unit, assumed, close in self.conn.execute(
+            "SELECT vendor_symbol, reported_unit, unit_assumed, close_zar FROM stg_price")))
+        self.assertEqual(rows, {"AAA.V": ("ZAc", 1, 229.98), "ZZZ.V": ("ZAR", 0, 229.98)})
 
     def test_unknown_unit_is_left_unconverted(self):
         self.bars("AAA.V", {"2026-09-25": 22998}, unit="USD")

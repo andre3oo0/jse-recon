@@ -1,7 +1,7 @@
 -- Match side A against side B on security and date, and classify every key, matched or not.
 INSERT INTO recon_result (
     recon_run_id, key_id, price_date, status, close_a, close_b,
-    diff_zar, diff_pct, rows_a, rows_b, explanation
+    diff_zar, diff_pct, rows_a, rows_b, volume_a, volume_b, explanation
 )
 -- Only securities both runs asked the vendor for; a universe change is a scope difference, not a break
 WITH scope AS (
@@ -23,6 +23,7 @@ side_a AS (
         price_date,
         COUNT(*) AS n,
         MAX(close_zar) AS close_zar,
+        MAX(volume) AS volume,
         COUNT(DISTINCT close_zar) AS distinct_closes,
         MAX(unit_anomaly IS NOT NULL OR unit_factor IS NULL) AS unit_flag,
         MAX(stale_days) AS stale_days,
@@ -38,6 +39,7 @@ side_b AS (
         price_date,
         COUNT(*) AS n,
         MAX(close_zar) AS close_zar,
+        MAX(volume) AS volume,
         COUNT(DISTINCT close_zar) AS distinct_closes,
         MAX(unit_anomaly IS NOT NULL OR unit_factor IS NULL) AS unit_flag,
         MAX(stale_days) AS stale_days,
@@ -56,6 +58,8 @@ joined AS (
         b.n AS rows_b,
         a.close_zar AS close_a,
         b.close_zar AS close_b,
+        a.volume AS volume_a,
+        b.volume AS volume_b,
         b.close_zar - a.close_zar AS diff_zar,
         (b.close_zar - a.close_zar) / NULLIF(ABS(a.close_zar), 0) * 100 AS diff_pct,
         b.close_zar / NULLIF(a.close_zar, 0) AS ratio,
@@ -96,6 +100,8 @@ SELECT
     diff_pct,
     rows_a,
     rows_b,
+    volume_a,
+    volume_b,
     CASE status
         WHEN 'DUP' THEN printf('%d row(s) in A, %d in B%s', COALESCE(rows_a, 0), COALESCE(rows_b, 0),
                                CASE WHEN dup_disagrees THEN ', with different prices' ELSE '' END)

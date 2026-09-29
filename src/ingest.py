@@ -12,10 +12,19 @@ from pathlib import Path
 import pandas as pd
 
 from src import config, db, security_master, staging
+from src.sources.afx import AfxSource
 from src.sources.base import PRICE_COLUMNS, PriceSource, SymbolStatus
+from src.sources.eodhd import EodhdSource, MissingApiKey
 from src.sources.yahoo import YahooSource
 
-SOURCES = {"yahoo": lambda: YahooSource(suffix=config.universe()["vendor_suffix"]["yahoo"])}
+SOURCES = {
+    "yahoo": lambda: YahooSource(suffix=config.sources()["yahoo"]["suffix"]),
+    "eodhd": lambda: EodhdSource(suffix=config.sources()["eodhd"]["suffix"]),
+    "afx": lambda: AfxSource(
+        url=config.sources()["afx"]["url"],
+        crawl_delay_seconds=config.sources()["afx"]["crawl_delay_seconds"],
+    ),
+}
 
 SAST = timezone(timedelta(hours=2))  # no daylight saving, so a fixed offset is exact
 SESSION_FINAL = time(17, 30)  # JSE closes at 17:00; allow for the closing auction and vendor publication
@@ -139,8 +148,9 @@ def load(conn: sqlite3.Connection, prices_path: Path, manifest: dict) -> str:
             ),
         )
         conn.executemany(
-            "INSERT INTO ingest_symbol_status VALUES (?, ?, ?, ?, ?, ?)",
-            [(run_id, s.vendor_symbol, s.status, s.row_count, s.reported_unit, s.error) for s in statuses],
+            "INSERT INTO ingest_symbol_status (run_id, vendor_symbol, status, row_count, reported_unit, error, isin) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [(run_id, s.vendor_symbol, s.status, s.row_count, s.reported_unit, s.error, s.isin) for s in statuses],
         )
         prices = prices.assign(source=source, snapshot_date=snapshot_date, run_id=run_id)
         prices = prices.astype(object).where(prices.notna(), None)
@@ -166,6 +176,13 @@ def coverage_report(conn: sqlite3.Connection, run_id: str) -> None:
         (run_id,),
     ).fetchall()
     print("Reported units: " + ", ".join(f"{u} x{n}" for u, n in units))
+    sample = conn.execute(
+        "SELECT vendor_symbol, price_date, close, reported_unit FROM raw_price WHERE run_id = ? "
+        "ORDER BY vendor_symbol, price_date DESC LIMIT 1",
+        (run_id,),
+    ).fetchone()
+    if sample:
+        print(f"Sample: {sample[0]} {sample[1]} close {sample[2]} {sample[3] or '(unit not reported)'}")
 
     gaps = conn.execute(
         """
@@ -187,27 +204,34 @@ def coverage_report(conn: sqlite3.Connection, run_id: str) -> None:
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--source", default="yahoo", choices=SOURCES)
-    p.add_argument("--period", default="3mo", help="vendor lookback, e.g. 3mo, 1y, 5y, max")
+    p.add_argument("--period", help="vendor lookback, e.g. 3mo, 1y, 5y; defaults to the source's setting")
     p.add_argument("--snapshot-date", default=datetime.now(SAST).date().isoformat())
     p.add_argument("--refetch", action="store_true", help="overwrite an existing landed snapshot")
+    p.add_argument("--batch", type=int, help="override the source's daily_batch, e.g. for a cheap smoke test")
     p.add_argument(
         "--min-coverage", type=float, default=0.90,
         help="refuse to land if fewer than this share of symbols return data",
     )
     args = p.parse_args(argv)
 
+    settings = config.sources()[args.source]
     source = SOURCES[args.source]()
     conn = db.connect()
     db.apply_schema(conn)
-    security_master.sync(conn, [source])
-    symbols = security_master.active_symbols(conn, source.name)
+    security_master.sync(conn, [factory() for factory in SOURCES.values()])
+    batch = args.batch or settings.get("daily_batch")
+    symbols = (
+        security_master.rotation_batch(conn, source.name, batch, args.snapshot_date)
+        if batch
+        else security_master.active_symbols(conn, source.name)
+    )
 
     try:
         prices_path, manifest = land(
-            source, symbols, args.period, args.snapshot_date, args.refetch,
+            source, symbols, args.period or settings["period"], args.snapshot_date, args.refetch,
             min_coverage=args.min_coverage,
         )
-    except IncompleteSnapshot as exc:
+    except (IncompleteSnapshot, MissingApiKey) as exc:
         print(f"FAILED: {exc}", file=sys.stderr)
         return 2
     run_id = load(conn, prices_path, manifest)

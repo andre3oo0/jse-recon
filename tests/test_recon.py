@@ -40,7 +40,7 @@ class ReconTest(unittest.TestCase):
     def security(self, sec, a=None, b=None, mapped=True, requested="ab"):
         for source in requested:
             self.conn.execute(
-                "INSERT INTO ingest_symbol_status VALUES (?, ?, 'ok', 5, 'ZAc', NULL)",
+                "INSERT INTO ingest_symbol_status (run_id, vendor_symbol, status, row_count) VALUES (?, ?, 'ok', 5)",
                 (f"run_{source}", f"{sec}.{source}"),
             )
         if mapped:

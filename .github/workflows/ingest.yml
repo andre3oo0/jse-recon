@@ -20,6 +20,10 @@ on:
         description: Fetch and report coverage, but commit nothing
         type: boolean
         default: false
+      batch:
+        description: Securities per rotated source (EODHD, AFX); blank for the configured daily batch
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -31,7 +35,7 @@ concurrency:
 jobs:
   snapshot:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
 
@@ -54,15 +58,32 @@ jobs:
       - name: Verify existing snapshots  # loading re-checks every snapshot against its manifest hash
         run: python -m src.rebuild
 
-      - name: Take snapshot  # inputs pass through env, so a crafted input cannot inject shell
+      - name: Yahoo snapshot  # inputs pass through env, so a crafted input cannot inject shell
         shell: bash
         env:
           PERIOD: ${{ inputs.period || '3mo' }}
           REFETCH: ${{ inputs.refetch && '--refetch' || '' }}
-        run: python -m src.ingest --period "$PERIOD" --min-coverage 0.95 $REFETCH 2>&1 | tee ingest.log
+        run: python -m src.ingest --source yahoo --period "$PERIOD" --min-coverage 0.95 $REFETCH 2>&1 | tee -a ingest.log
 
-      - name: Commit snapshot
-        if: ${{ !inputs.dry_run }}
+      - name: EODHD snapshot
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+          REFETCH: ${{ inputs.refetch && '--refetch' || '' }}
+          BATCH: ${{ inputs.batch }}
+        run: python -m src.ingest --source eodhd --min-coverage 0.8 $REFETCH ${BATCH:+--batch "$BATCH"} 2>&1 | tee -a ingest.log
+
+      - name: AFX snapshot  # about 22 minutes: one page a minute, as the site's robots.txt asks
+        if: ${{ !cancelled() }}
+        shell: bash
+        env:
+          REFETCH: ${{ inputs.refetch && '--refetch' || '' }}
+          BATCH: ${{ inputs.batch }}
+        run: python -m src.ingest --source afx --min-coverage 0.8 $REFETCH ${BATCH:+--batch "$BATCH"} 2>&1 | tee -a ingest.log
+
+      - name: Commit snapshots  # runs even if one source failed, so the others are never lost
+        if: ${{ !cancelled() && !inputs.dry_run }}
         working-directory: data/landing
         shell: bash
         run: |
@@ -70,10 +91,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then
-            echo "Snapshot already recorded; nothing to commit."
+            echo "Snapshots already recorded; nothing to commit."
             exit 0
           fi
-          git commit -m "yahoo snapshot $(TZ=Africa/Johannesburg date +%F)"
+          landed=$(git diff --cached --name-only | cut -d/ -f1 | sort -u | paste -sd, -)
+          git commit -m "snapshots $(TZ=Africa/Johannesburg date +%F): $landed"
           git push origin snapshots
 
       - name: Data quality  # after the commit, so a failing report can never cost a snapshot

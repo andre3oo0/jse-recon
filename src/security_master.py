@@ -58,6 +58,29 @@ def sync(conn: sqlite3.Connection, sources: list[PriceSource]) -> int:
     return len(securities)
 
 
+def rotation_batch(conn: sqlite3.Connection, source: str, size: int, snapshot_date: str) -> list[str]:
+    # Least recently tried first; earlier dates only, so a same-day refetch gets the same batch
+    rows = conn.execute(
+        """
+        SELECT x.vendor_symbol
+        FROM security_xref x
+        JOIN security_master m ON m.security_id = x.security_id
+        LEFT JOIN (
+            SELECT s.vendor_symbol, MAX(r.snapshot_date) AS last_tried
+            FROM ingest_symbol_status s
+            JOIN ingest_run r ON r.run_id = s.run_id
+            WHERE r.source = ? AND r.snapshot_date < ?
+            GROUP BY s.vendor_symbol
+        ) t ON t.vendor_symbol = x.vendor_symbol
+        WHERE x.source = ? AND m.status = 'active' AND x.valid_to IS NULL
+        ORDER BY t.last_tried IS NOT NULL, t.last_tried, x.vendor_symbol
+        LIMIT ?
+        """,
+        (source, snapshot_date, source, size),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
 def active_symbols(conn: sqlite3.Connection, source: str) -> list[str]:
     rows = conn.execute(
         """

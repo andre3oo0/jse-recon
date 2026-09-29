@@ -1,17 +1,8 @@
--- Warehouse schema. SQLite 3.39+ is required for FULL OUTER JOIN in the
--- recon layer.
-
+-- Warehouse schema. Needs SQLite 3.39+ for FULL OUTER JOIN in the recon layer.
+PRAGMA user_version = 3;  -- bump on any change so src/db.py asks for a rebuild
 PRAGMA foreign_keys = ON;
 
--- ---------------------------------------------------------------------
--- Reference data
--- ---------------------------------------------------------------------
-
--- One row per real-world security. security_id is the current JSE alpha
--- code. Alpha codes do change (TCP became NTU on 2025-03-18, AMS became
--- VAL); the ISIN survives a rename and should become the key once it is
--- populated for the whole universe. A retired security is kept, never
--- deleted, because historical breaks still reference it.
+-- One row per security, keyed on the current JSE alpha code; ISIN should replace it once populated.
 CREATE TABLE IF NOT EXISTS security_master (
     security_id  TEXT PRIMARY KEY,
     name         TEXT NOT NULL,
@@ -23,8 +14,7 @@ CREATE TABLE IF NOT EXISTS security_master (
     updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- How each vendor names each security. A vendor symbol maps to exactly
--- one security; a security can have several symbols over time.
+-- Vendor symbol to security; validity dates let one security carry several symbols over time.
 CREATE TABLE IF NOT EXISTS security_xref (
     source         TEXT NOT NULL,
     vendor_symbol  TEXT NOT NULL,
@@ -34,15 +24,18 @@ CREATE TABLE IF NOT EXISTS security_xref (
     PRIMARY KEY (source, vendor_symbol)
 );
 
--- ---------------------------------------------------------------------
--- Ingest audit
--- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS trading_calendar (
+    cal_date        TEXT PRIMARY KEY,
+    is_trading_day  INTEGER NOT NULL CHECK (is_trading_day IN (0, 1)),
+    reason          TEXT
+);
 
 CREATE TABLE IF NOT EXISTS ingest_run (
     run_id             TEXT PRIMARY KEY,
     source             TEXT NOT NULL,
     snapshot_date      TEXT NOT NULL,
     fetched_at         TEXT NOT NULL,
+    session_cutoff     TEXT NOT NULL,  -- last date whose session was complete when fetched
     lookback_period    TEXT NOT NULL,
     symbols_requested  INTEGER NOT NULL,
     symbols_returned   INTEGER NOT NULL,
@@ -51,8 +44,7 @@ CREATE TABLE IF NOT EXISTS ingest_run (
     landing_sha256     TEXT NOT NULL
 );
 
--- Per-symbol outcome of each run. This is the coverage record: a symbol
--- that returns nothing is logged here, never silently skipped.
+-- Per-symbol outcome of each run, so a symbol that returns nothing is recorded rather than skipped.
 CREATE TABLE IF NOT EXISTS ingest_symbol_status (
     run_id         TEXT NOT NULL REFERENCES ingest_run (run_id),
     vendor_symbol  TEXT NOT NULL,
@@ -63,14 +55,7 @@ CREATE TABLE IF NOT EXISTS ingest_symbol_status (
     PRIMARY KEY (run_id, vendor_symbol)
 );
 
--- ---------------------------------------------------------------------
--- Raw prices
--- ---------------------------------------------------------------------
-
--- Faithful copy of landed files. Deliberately no primary key: a vendor
--- that sends a duplicate row must be caught downstream as a DUP break,
--- not quietly deduplicated on load. Re-runs are idempotent at partition
--- level instead (the loader replaces a whole source + snapshot_date).
+-- No primary key on purpose: vendor duplicates must reach the recon as DUP breaks.
 CREATE TABLE IF NOT EXISTS raw_price (
     source         TEXT NOT NULL,
     snapshot_date  TEXT NOT NULL,
@@ -88,8 +73,27 @@ CREATE TABLE IF NOT EXISTS raw_price (
     run_id         TEXT NOT NULL REFERENCES ingest_run (run_id)
 );
 
-CREATE INDEX IF NOT EXISTS ix_raw_price_partition
-    ON raw_price (source, snapshot_date);
+CREATE INDEX IF NOT EXISTS ix_raw_price_partition ON raw_price (source, snapshot_date);
+CREATE INDEX IF NOT EXISTS ix_raw_price_key ON raw_price (vendor_symbol, price_date);
 
-CREATE INDEX IF NOT EXISTS ix_raw_price_key
-    ON raw_price (vendor_symbol, price_date);
+-- Raw prices mapped to securities, in rands, with calendar and anomaly flags. Derived; rebuilt each run.
+CREATE TABLE IF NOT EXISTS stg_price (
+    source          TEXT NOT NULL,
+    snapshot_date   TEXT NOT NULL,
+    security_id     TEXT,  -- NULL when the vendor symbol has no mapping
+    vendor_symbol   TEXT NOT NULL,
+    price_date      TEXT NOT NULL,
+    close_zar       REAL,
+    adj_close_zar   REAL,
+    volume          REAL,
+    reported_unit   TEXT,
+    unit_factor     REAL,  -- NULL when the reported unit is unrecognised
+    is_trading_day  INTEGER,
+    unit_anomaly    TEXT CHECK (unit_anomaly IN ('too_small', 'too_large')),
+    ratio_ref1      REAL,  -- close divided by the nearest bar
+    ratio_ref2      REAL,  -- close divided by the second-nearest reference bar
+    run_id          TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS ix_stg_price_lookup ON stg_price (source, snapshot_date, vendor_symbol, price_date);
+CREATE INDEX IF NOT EXISTS ix_stg_price_key ON stg_price (security_id, price_date);

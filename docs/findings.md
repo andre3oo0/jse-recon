@@ -101,3 +101,45 @@ fail certificate verification. Price data still arrives after retries.
 The ingest treats every symbol as able to fail independently, and it
 logs the outcome in `ingest_symbol_status` rather than crashing or
 dropping the symbol quietly.
+
+## 2026-09-29: staging and data quality checks
+
+The first snapshot, run through staging: 131,627 rows, all mapped to a security, all in a
+recognised unit, all inside the calendar.
+
+### 6. The unit check catches all ten glitches, with no false alarms
+
+Each bar is compared with its two nearest bars. A bar roughly 100x away from both is flagged. All
+ten bars from finding 1 are caught, and none of the other 131,617 bars is flagged.
+
+The band had to be calibrated on the real data. A ±5% band around 100x missed CMH on 2025-04-25:
+the glitch bar was R0.30 between R29.59 and R32.50, so the share also moved 10% that day. The band
+is now 80x to 125x. A genuine day's move is nowhere near that size, so widening it costs nothing.
+
+Writing the tests exposed an edge case the real data did not contain: with only two bars 100x
+apart, either could be the wrong one. The check leaves them unjudged until a third bar arrives,
+rather than guessing.
+
+### 7. The holiday-law calendar agrees with Yahoo on 1,247 of 1,248 trading days
+
+The calendar is built from the Public Holidays Act (fixed holidays, Easter, and the rule that a
+Sunday holiday is observed on the Monday), plus closures declared under section 2A, each with a
+source in `config/jse_calendar.yaml`. It was built without looking at Yahoo's dates.
+
+Over five years:
+- **No Yahoo bars fall on a closed day**, including all four declared closures in the period
+  (2021-11-01, 2022-12-27, 2023-12-15, 2024-05-29).
+- **Every trading day has bars except one: 2026-09-28**, missing for all 106 symbols.
+- **No individual stock is missing a single session.** Yahoo fills every bar, even with zero
+  volume (the 82 zero-volume bars from finding 4 all fall on trading days). A missing bar for one
+  stock will therefore stand out when it happens.
+
+### 8. 28 September 2026 still has no explanation
+
+No special holiday was declared for that date. The next declared closure is 4 November 2026, for
+the local government elections, and it is already in the calendar. No JSE outage has been reported
+for the 28th either. The likeliest explanation is a Yahoo gap, but that is unconfirmed until a
+second source is available.
+
+The next snapshot will show whether Yahoo fills the day in late. If it does, that is a restatement
+of history, which is exactly what the restatement recon is designed to detect.

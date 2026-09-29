@@ -1,0 +1,17 @@
+# One-off closures declared under s2A of the Public Holidays Act; statutory holidays are computed in code.
+special_closures:
+  - date: 2021-11-01
+    reason: Local government elections
+    source: https://businesstech.co.za/news/lifestyle/458764/south-africa-to-get-two-extra-public-holidays-in-2021/
+  - date: 2022-12-27
+    reason: Declared holiday, Christmas Day fell on a Sunday
+    source: https://www.gov.za/speeches/president-cyril-ramaphosa-declares-27-december-public-holiday-8-dec-2022-0000
+  - date: 2023-12-15
+    reason: Declared holiday after the Rugby World Cup win
+    source: https://enca.com/top-stories/15-december-declared-public-holiday
+  - date: 2024-05-29
+    reason: National and provincial elections
+    source: https://businesstech.co.za/news/lifestyle/740085/south-africa-to-get-two-extra-public-holidays-in-2024/
+  - date: 2026-11-04
+    reason: Local government elections
+    source: https://briefly.co.za/south-africa/252582-south-africa-extra-public-holiday-2026-ramaphosa-declares-election-day/

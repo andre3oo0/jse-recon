@@ -1,19 +1,9 @@
-"""Rebuild the warehouse from every landed snapshot.
-
-    python -m src.rebuild
-
-Landing is the record; the warehouse is derived from it. The scheduled
-GitHub Action commits snapshots to the `snapshots` branch and keeps no
-database, so this is how a local warehouse catches up after pulling:
-
-    git -C data/landing pull
-    python -m src.rebuild
-"""
+"""Rebuild the warehouse from every landed snapshot; landing is the record and the warehouse is derived."""
 
 import json
 import sys
 
-from src import config, db, ingest, security_master
+from src import config, db, ingest, security_master, staging
 
 
 def main() -> int:
@@ -32,8 +22,8 @@ def main() -> int:
         ingest.load(conn, path.parent / ingest.PRICES_FILE, manifest)
         print(f"loaded {manifest['source']} {manifest['snapshot_date']}: {manifest['rows']:,} rows")
 
-    total = conn.execute("SELECT COUNT(*) FROM raw_price").fetchone()[0]
-    print(f"\n{len(manifests)} snapshots, {total:,} raw rows in {config.DB_PATH.name}")
+    staged = staging.build(conn)
+    print(f"\n{len(manifests)} snapshots, {staged:,} staged rows in {config.DB_PATH.name}")
     return 0
 
 

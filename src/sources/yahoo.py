@@ -7,8 +7,7 @@ import yfinance as yf
 
 from src.sources.base import PRICE_COLUMNS, PriceSource, SymbolStatus
 
-# yfinance logs every retry and crumb failure. Outcomes are recorded in
-# ingest_symbol_status instead, so its own logging is only noise here.
+# Outcomes are recorded in ingest_symbol_status, so yfinance's own retry logging is noise
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 
 _RENAME = {
@@ -53,9 +52,7 @@ class YahooSource(PriceSource):
                 ticker = yf.Ticker(symbol)
                 hist = ticker.history(period=period, auto_adjust=False, actions=True)
                 if hist.empty:
-                    # Empty with no exception is usually a dead symbol, but
-                    # the TLS-intercepting network here also produces empty
-                    # responses, so it earns the same retries as an error.
+                    # Usually a dead symbol, but flaky networks return empty too, so retry it like an error
                     last_error = None
                 else:
                     unit = (ticker.history_metadata or {}).get("currency")
@@ -75,9 +72,7 @@ class YahooSource(PriceSource):
     @staticmethod
     def _to_frame(symbol: str, hist: pd.DataFrame, unit: str | None) -> pd.DataFrame:
         df = hist.rename(columns=_RENAME).reset_index()
-        # Yahoo stamps each bar at local midnight, tz-aware. The date in the
-        # exchange's own timezone is the trading date; converting to UTC
-        # first would shift every bar to the previous day.
+        # Bars are stamped at Johannesburg midnight; converting to UTC first would shift every date back a day
         df["price_date"] = df["Date"].dt.strftime("%Y-%m-%d")
         df["vendor_symbol"] = symbol
         df["reported_unit"] = unit

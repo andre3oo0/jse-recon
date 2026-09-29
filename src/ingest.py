@@ -1,25 +1,4 @@
-"""Take today's snapshot from a vendor, land it, and load it.
-
-    python -m src.ingest                 # yahoo, 3mo lookback
-    python -m src.ingest --period 5y     # deeper backfill
-    python -m src.ingest --refetch       # replace today's landed file
-
-Landing is immutable by default. If a snapshot for today already exists
-it is reloaded from disk rather than fetched again, so re-running never
-silently changes what the vendor was recorded as saying.
-
-Each snapshot carries the full lookback, not just the latest bar. That
-overlap is what makes restatement recon possible: consecutive snapshots
-should agree on history, and where they don't, the vendor restated it.
-
-A snapshot holds completed sessions only. Taken before SESSION_FINAL on
-its snapshot date, it drops that day's bar, which is still moving, and
-records how many rows it dropped. Otherwise an immutable landing file
-would preserve an intraday price as if it were the close.
-
-A snapshot that fails the coverage gate is not landed. Because landing
-is immutable, recording a blocked or broken fetch would lock it in.
-"""
+"""Take today's snapshot from a vendor, land it immutably, and load it into the warehouse."""
 
 import argparse
 import hashlib
@@ -38,12 +17,8 @@ from src.sources.yahoo import YahooSource
 
 SOURCES = {"yahoo": lambda: YahooSource(suffix=config.universe()["vendor_suffix"]["yahoo"])}
 
-# South Africa has no daylight saving, so a fixed offset is exact and
-# avoids needing the tzdata package on Windows.
-SAST = timezone(timedelta(hours=2))
-# JSE continuous trading ends at 17:00; the closing auction and vendor
-# publication take a little longer.
-SESSION_FINAL = time(17, 30)
+SAST = timezone(timedelta(hours=2))  # no daylight saving, so a fixed offset is exact
+SESSION_FINAL = time(17, 30)  # JSE closes at 17:00; allow for the closing auction and vendor publication
 
 PRICES_FILE = "prices.csv.gz"
 MANIFEST_FILE = "manifest.json"
@@ -53,12 +28,15 @@ class IncompleteSnapshot(Exception):
     pass
 
 
-def completed_sessions(prices: pd.DataFrame, snapshot_date: str, now: datetime) -> pd.DataFrame:
+def session_cutoff(snapshot_date: str, fetched: datetime) -> str:
     snap = datetime.fromisoformat(snapshot_date).date()
-    local = now.astimezone(SAST)
+    local = fetched.astimezone(SAST)
     final = local.date() > snap or (local.date() == snap and local.time() >= SESSION_FINAL)
-    last_kept = snapshot_date if final else (snap - timedelta(days=1)).isoformat()
-    return prices[prices["price_date"] <= last_kept]
+    return snapshot_date if final else (snap - timedelta(days=1)).isoformat()
+
+
+def completed_sessions(prices: pd.DataFrame, snapshot_date: str, now: datetime) -> pd.DataFrame:
+    return prices[prices["price_date"] <= session_cutoff(snapshot_date, now)]
 
 
 def landing_dir(source: str, snapshot_date: str) -> Path:
@@ -70,13 +48,11 @@ def sha256(path: Path) -> str:
 
 
 def write_prices(prices: pd.DataFrame, path: Path) -> None:
-    # mtime=0 keeps the gzip header free of a timestamp, so identical
-    # content always produces an identical file and hash.
+    # mtime=0 keeps the gzip header timestamp-free, so identical content gives an identical hash
     prices.to_csv(path, index=False, compression={"method": "gzip", "mtime": 0})
 
 
 def land(source: PriceSource, symbols, period, snapshot_date, refetch, now=None, min_coverage=0.0):
-    """Fetch and write the landing files, or reuse them if already there."""
     now = now or datetime.now(SAST)
     out = landing_dir(source.name, snapshot_date)
     prices_path, manifest_path = out / PRICES_FILE, out / MANIFEST_FILE
@@ -86,7 +62,6 @@ def land(source: PriceSource, symbols, period, snapshot_date, refetch, now=None,
         print(f"Snapshot {snapshot_date} already landed; reloading {prices_path}")
         return prices_path, manifest
 
-    fetched_at = now.astimezone(timezone.utc).isoformat(timespec="seconds")
     fetched, statuses = source.fetch(symbols, period)
 
     returned = sum(s.status == "ok" for s in statuses)
@@ -104,27 +79,30 @@ def land(source: PriceSource, symbols, period, snapshot_date, refetch, now=None,
         "run_id": str(uuid.uuid4()),
         "source": source.name,
         "snapshot_date": snapshot_date,
-        "fetched_at": fetched_at,
+        "fetched_at": now.astimezone(timezone.utc).isoformat(timespec="seconds"),
+        "session_cutoff": session_cutoff(snapshot_date, now),
         "lookback_period": period,
         "rows": len(prices),
         "excluded_incomplete_session_rows": len(fetched) - len(prices),
         "sha256": sha256(prices_path),
         "symbols": [s.__dict__ for s in statuses],
     }
-    # LF on every OS, so a snapshot's manifest is byte-identical wherever it was taken.
+    # LF on every OS, so a manifest is byte-identical wherever it was written
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
     return prices_path, manifest
 
 
 def load(conn: sqlite3.Connection, prices_path: Path, manifest: dict) -> str:
-    """Replace the source + snapshot_date partition in one transaction."""
     if sha256(prices_path) != manifest["sha256"]:
         raise RuntimeError(f"{prices_path} does not match its manifest hash; landing was modified.")
 
     source, snapshot_date, run_id = manifest["source"], manifest["snapshot_date"], manifest["run_id"]
+    # Manifests written before session_cutoff existed derive it from their fetch time
+    cutoff = manifest.get("session_cutoff") or session_cutoff(
+        snapshot_date, datetime.fromisoformat(manifest["fetched_at"])
+    )
     statuses = [SymbolStatus(**s) for s in manifest["symbols"]]
-    prices = pd.read_csv(prices_path, dtype={"vendor_symbol": str, "price_date": str})
-    prices = prices[PRICE_COLUMNS]
+    prices = pd.read_csv(prices_path, dtype={"vendor_symbol": str, "price_date": str})[PRICE_COLUMNS]
 
     with conn:
         stale_runs = [
@@ -134,23 +112,24 @@ def load(conn: sqlite3.Connection, prices_path: Path, manifest: dict) -> str:
                 (source, snapshot_date),
             )
         ]
-        conn.execute(
-            "DELETE FROM raw_price WHERE source = ? AND snapshot_date = ?",
-            (source, snapshot_date),
-        )
+        conn.execute("DELETE FROM raw_price WHERE source = ? AND snapshot_date = ?", (source, snapshot_date))
         for stale in stale_runs:
             conn.execute("DELETE FROM ingest_symbol_status WHERE run_id = ?", (stale,))
             conn.execute("DELETE FROM ingest_run WHERE run_id = ?", (stale,))
 
         conn.execute(
             """
-            INSERT INTO ingest_run VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO ingest_run (
+                run_id, source, snapshot_date, fetched_at, session_cutoff, lookback_period,
+                symbols_requested, symbols_returned, rows_landed, landing_path, landing_sha256
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 run_id,
                 source,
                 snapshot_date,
                 manifest["fetched_at"],
+                cutoff,
                 manifest["lookback_period"],
                 len(statuses),
                 sum(s.status == "ok" for s in statuses),
@@ -161,10 +140,7 @@ def load(conn: sqlite3.Connection, prices_path: Path, manifest: dict) -> str:
         )
         conn.executemany(
             "INSERT INTO ingest_symbol_status VALUES (?, ?, ?, ?, ?, ?)",
-            [
-                (run_id, s.vendor_symbol, s.status, s.row_count, s.reported_unit, s.error)
-                for s in statuses
-            ],
+            [(run_id, s.vendor_symbol, s.status, s.row_count, s.reported_unit, s.error) for s in statuses],
         )
         prices = prices.assign(source=source, snapshot_date=snapshot_date, run_id=run_id)
         prices = prices.astype(object).where(prices.notna(), None)
@@ -177,12 +153,11 @@ def load(conn: sqlite3.Connection, prices_path: Path, manifest: dict) -> str:
 
 
 def coverage_report(conn: sqlite3.Connection, run_id: str) -> None:
-    run = conn.execute(
+    source, snap, requested, returned, rows = conn.execute(
         "SELECT source, snapshot_date, symbols_requested, symbols_returned, rows_landed "
         "FROM ingest_run WHERE run_id = ?",
         (run_id,),
     ).fetchone()
-    source, snap, requested, returned, rows = run
     print(f"\n{source} snapshot {snap}: {returned}/{requested} symbols, {rows:,} rows")
 
     units = conn.execute(
@@ -210,7 +185,7 @@ def coverage_report(conn: sqlite3.Connection, run_id: str) -> None:
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--source", default="yahoo", choices=SOURCES)
     p.add_argument("--period", default="3mo", help="vendor lookback, e.g. 3mo, 1y, 5y, max")
     p.add_argument("--snapshot-date", default=datetime.now(SAST).date().isoformat())

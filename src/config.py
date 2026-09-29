@@ -1,5 +1,4 @@
-"""Paths and config loading. Everything resolves from the repo root so the
-tools run the same wherever they are invoked from."""
+"""Paths and config loading, resolved from the repo root so tools run the same from anywhere."""
 
 from pathlib import Path
 

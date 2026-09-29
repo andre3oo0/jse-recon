@@ -1,72 +1,87 @@
-# jse-recon
+# JSE Price Reconciliation
 
-A price and holdings reconciliation tool for JSE equities, modelled on
-the daily reconciliation control fund administrators run. Two
-independent records of the same securities are matched in SQL, and every
-disagreement is classified, aged and costed in NAV basis points.
+A tool that checks whether different records of the same share prices agree, and catches the
+mistakes before they cost money.
 
-**Status:** ingest running, recon engine in progress. See
-[docs/plan.md](docs/plan.md).
+## Why this matters
 
-## What the data showed on day one
+Fund administrators work out what every fund is worth each day using share prices bought from data
+providers. If one of those prices is wrong, the fund's value is wrong. Investors who buy or sell
+that day pay or receive the wrong amount, and the administrator has to fix it afterwards.
 
-Before any matching logic existed, profiling the first Yahoo Finance
-snapshot found:
+The control that prevents this is **reconciliation**: comparing independent records of the same
+data and investigating every difference. This project builds a small version of that control for
+shares listed on the Johannesburg Stock Exchange (JSE).
 
-- **Rand prices inside a cents series.** On 2025-01-10 and 2025-04-25,
-  ten securities (including Standard Bank, Vodacom and Sanlam) carry a
-  single bar about 1/100th of its neighbours. A NAV struck from that feed
-  on 2025-01-10 would have been understated by **6.54%**, 654 times a
-  1bp restatement threshold.
-- **A missing session.** Monday 28 September 2026 is absent from every
-  lookback, and one source cannot say whether the market or the vendor
-  is at fault.
-- **Five dead codes, all for real reasons**: one rename (Transaction
-  Capital to Nutun) and four delistings. Alpha codes change; ISINs
-  don't.
+## What it has found so far
 
-Details and method: [docs/findings.md](docs/findings.md).
+Before any comparison between sources had been built, checking a single well-known source (Yahoo
+Finance) turned up real problems in five years of prices:
 
-## Quick start
+- **Prices 100 times too small.** On 10 January 2025, Yahoo recorded seven JSE shares, including
+  Vodacom and Sanlam, at one hundredth of their real price for a single day. A fund valued from
+  that data would have reported itself **6.5% smaller** than it was: a R65,000 error on a
+  R1 million fund. It happened again on 25 April 2025, to Standard Bank and two others.
+- **A missing trading day.** Yahoo has no prices at all for Monday 28 September 2026, a normal
+  trading day with no public holiday and no reported market outage.
+- **Shares that changed identity.** Five of the 111 shares tracked had been renamed or delisted.
+  Each case was confirmed from official JSE notices, not assumed.
 
-Requires Python 3.10+ and SQLite 3.39+ (bundled with recent Python).
+All ten wrong prices are now caught automatically, with no false alarms across 131,000 prices.
+The full write-up, with sources, is in [docs/findings.md](docs/findings.md).
+
+## How it works
+
+1. **Collect.** Every weekday evening an automated job downloads closing prices for 107 JSE shares
+   and stores them exactly as received. Stored records are never edited, and each is
+   fingerprinted, so any later change is detected.
+2. **Standardise.** Prices are converted from cents to rands, matched to the right company even
+   after a name change, and checked against the JSE trading calendar, built from South Africa's
+   public holiday law.
+3. **Check quality.** Suspicious prices, missing days and prices on days the market was closed are
+   flagged for review. Nothing is corrected silently: a problem stays visible until someone
+   decides what it means.
+4. **Reconcile** *(in progress)*. Two independent sources will be compared side by side, and every
+   disagreement will be classified, tracked until it is resolved, and costed in terms of its
+   effect on a fund's value.
+
+## Skills shown
+
+| Area | What it involves here |
+|---|---|
+| SQL | Joins, window functions and data quality views that do the matching and checking |
+| Python | The data pipeline, vendor connection and report generation |
+| Testing | Automated tests built around real errors found in the data |
+| Automation | A scheduled GitHub Actions job that collects, checks and stores data daily |
+| Finance | Fund valuation (NAV), reconciliation breaks, tolerances, renames and delistings |
+| Data quality | Audit trails, tamper detection, and a policy of flagging rather than fixing |
+
+## Progress
+
+- [x] Daily automated price collection with integrity checks
+- [x] Company reference data, including renames and delistings
+- [x] JSE trading calendar and data quality checks
+- [ ] Side-by-side reconciliation of two sources
+- [ ] Tracking each difference from first appearance until it is resolved
+- [ ] Excel report of breaks, and a write-up of their cost
+- [ ] Holdings reconciliation against a brokerage-style export
+
+## Running it
+
+Python 3.10 or newer. From a clone of the repository:
 
 ```bash
 pip install -r requirements.txt
-git worktree add data/landing snapshots   # the snapshot history
-python -m src.rebuild                     # warehouse from every snapshot
-python -m unittest discover -s tests -t .
+git worktree add data/landing snapshots
+python -m src.rebuild
+python -m src.staging
 ```
 
-Snapshots are taken by the [ingest workflow](.github/workflows/ingest.yml)
-at 18:30 SAST each weekday and committed to the `snapshots` branch.
-To catch up locally: `git -C data/landing pull && python -m src.rebuild`.
+This builds a local database from every stored snapshot and prints the data quality report. The
+tests run with `python -m unittest discover -s tests -t .`.
 
-To take one by hand: `python -m src.ingest` (3-month lookback, completed
-sessions only). Each snapshot lands as `<source>/<date>/prices.csv.gz`
-with a manifest, and a coverage report lists any code that returned no
-data. A fetch where under 90% of symbols return data is refused rather
-than landed.
+## More detail
 
-## Layout
-
-```
-config/     universe.yaml (111 JSE codes), tolerance_rules.yaml
-sql/        schema and, next, the recon SQL
-src/        ingest, security master, vendor adapters
-tests/      ingest guarantees; seeded break suite to follow
-docs/       plan, findings, EasyEquities export notes
-```
-
-## Design in brief
-
-- **Landing is immutable.** Re-running a day reloads what was recorded
-  rather than fetching again.
-- **Raw is faithful.** No deduplication on load, so vendor duplicates
-  surface as breaks.
-- **Adapters are swappable.** The recon only sees a fixed column
-  contract, so adding a vendor never touches the matching SQL.
-- **Completed sessions only.** A snapshot taken mid-session drops that
-  day's bar instead of preserving an intraday price as a close.
-
-Full reasoning: [docs/plan.md](docs/plan.md#decisions).
+- [docs/plan.md](docs/plan.md) covers the design, the phases and the reasoning behind each decision
+- [docs/findings.md](docs/findings.md) is a dated log of what the data has shown
+- [docs/easyequities_export.md](docs/easyequities_export.md) covers the brokerage export format

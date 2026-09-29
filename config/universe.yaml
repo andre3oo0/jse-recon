@@ -1,17 +1,4 @@
-# Reconciliation universe: JSE Top 40 plus liquid mid caps, across every
-# major sector so sector caps (project 3) have something to bite on.
-#
-# security_id is the JSE alpha code and is the internal golden key.
-# Vendor symbols (SOL.JO, sol.za, EQU.ZA.SOL) live in security_xref.
-#
-# Sector is a working classification, not official ICB. Verify before
-# relying on it for sector-cap compliance.
-#
-# Codes that stop returning data are resolved here, never deleted:
-# a renamed code is replaced and noted, a delisted one is marked
-# status: retired with the evidence in status_note. Optional fields:
-# isin, status (active | retired | unresolved), status_note. Only ISINs
-# confirmed against a source are filled in.
+# JSE Top 40 plus mid caps; sectors are approximate, and codes are retired with evidence, never deleted.
 
 exchange: JSE
 vendor_suffix:

@@ -1,7 +1,4 @@
-"""Ingest guarantees the recon layer relies on.
-
-    python -m unittest discover -s tests -v
-"""
+"""Ingest guarantees the recon layer relies on."""
 
 import tempfile
 import unittest
@@ -92,8 +89,7 @@ class IngestTest(unittest.TestCase):
         self.assertEqual(self.source.calls, 2)
 
     def test_vendor_duplicates_survive_into_raw(self):
-        # Deduplicating on load would hide a data quality failure the recon
-        # layer is meant to report as a DUP break.
+        # Deduplicating on load would hide what the recon must report as a DUP break
         self.source.rows.append(bar("AAA.F", "2026-09-29", 101.0))
         self.run_ingest()
         self.assertEqual(self.count("raw_price"), 3)
@@ -121,8 +117,7 @@ class IngestTest(unittest.TestCase):
             ingest.load(self.conn, path, manifest)
 
     def test_identical_content_lands_identical_bytes(self):
-        # The manifest hash is only a tamper check if a refetch of the same
-        # data reproduces it; a timestamp in the gzip header would not.
+        # The hash is only a tamper check if the same data always reproduces it
         args = (self.source, ["AAA.F", "BBB.F"], "5d", "2026-09-29")
         _, first = ingest.land(*args, refetch=False, now=self.AFTER_CLOSE)
         _, second = ingest.land(*args, refetch=True, now=self.AFTER_CLOSE)

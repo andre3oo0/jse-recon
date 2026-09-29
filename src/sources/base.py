@@ -1,10 +1,4 @@
-"""The contract every price vendor adapter meets.
-
-The recon core only ever sees PRICE_COLUMNS, so swapping or adding a
-vendor never touches the matching SQL. Adapters return what the vendor
-said, unconverted: units, symbols and calendars are normalised later, in
-staging, where the conversion is visible and testable.
-"""
+"""The contract every vendor adapter meets; adapters return what the vendor said, unconverted."""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -46,8 +40,4 @@ class PriceSource(ABC):
     def fetch(
         self, symbols: list[str], period: str
     ) -> tuple[pd.DataFrame, list[SymbolStatus]]:
-        """Return prices in PRICE_COLUMNS plus one status per symbol.
-
-        Must not raise for a single bad symbol: record it as 'empty' or
-        'error' and carry on, so one dead ticker cannot sink a run.
-        """
+        """Return prices in PRICE_COLUMNS plus one status per symbol, never raising for one bad symbol."""

@@ -1,8 +1,4 @@
-# A difference is a break only when it clears BOTH thresholds.
-# The absolute floor stops tiny prices tripping the percentage rule;
-# the percentage stops large prices tripping the floor.
-#
-# Prices are compared in ZAR after normalisation (sources report ZAc).
+# A difference is a break only when it clears BOTH the absolute floor (in rands) and the percentage.
 
 price_recon:
   yahoo_vs_stooq:
@@ -10,8 +6,7 @@ price_recon:
     adj_close: { abs_floor_zar: 0.05, rel_pct: 0.50 }
     volume:    { abs_floor: 1000,     rel_pct: 5.00 }
 
-  # Same vendor, consecutive snapshots. History should not move at all,
-  # so any change beyond rounding is a restatement.
+  # Same vendor, consecutive snapshots: history should not move, so any change is a restatement.
   yahoo_restatement:
     close:     { abs_floor_zar: 0.01, rel_pct: 0.01 }
     adj_close: { abs_floor_zar: 0.01, rel_pct: 0.01 }
@@ -24,5 +19,5 @@ holdings_recon:
 # Data quality rules that are not variance checks.
 dq:
   stale_price_days: 5        # identical close for N consecutive trading days
-  unit_ratio_band: [95, 105] # a price ratio in this band (or its inverse) flags UNIT
+  unit_ratio_band: [80, 125]  # ~100x off both neighbours; wide enough to allow a real price move on the day
   timing_clear_days: 2       # breaks that clear within N days are TIMING

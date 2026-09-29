@@ -1,9 +1,4 @@
-"""Load config/universe.yaml into security_master and security_xref.
-
-Upserts, so it is safe to re-run after editing the universe. It never
-deletes: a security that leaves the universe should be marked retired,
-because historical breaks still reference it.
-"""
+"""Upsert config/universe.yaml into security_master and security_xref; retire securities, never delete them."""
 
 import sqlite3
 
@@ -46,8 +41,7 @@ def sync(conn: sqlite3.Connection, sources: list[PriceSource]) -> int:
         ],
     )
 
-    # A security deleted from the universe file would otherwise stay
-    # active in the warehouse and keep being fetched.
+    # A security deleted from the universe file would otherwise stay active and keep being fetched
     listed = [s["security_id"] for s in securities]
     conn.execute(
         f"""

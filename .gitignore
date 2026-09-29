@@ -2,8 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 
-# Snapshots live on the `snapshots` branch, checked out here as a worktree:
-#   git worktree add data/landing snapshots
+# Snapshots branch, checked out here with: git worktree add data/landing snapshots
 data/landing/
 
 # The warehouse is derived from snapshots: python -m src.rebuild

@@ -21,7 +21,8 @@ vendor feeds ──→ landing/      immutable, one folder per source per snapsh
                 raw_price      faithful copy, no dedupe, partition-replace on reload
                     │
                     ▼
-                staging        tickers mapped, units converted, calendar aligned
+                staging        tickers mapped, units converted, calendar attached, anomalies flagged
+                    │          (data quality views: missing bars, whole-market gaps, closed-day bars)
                     │
 security_master ─→ recon (SQL) ←─ tolerance_rules.yaml
 trading_calendar ─┘   │
@@ -55,10 +56,10 @@ percentage, set per source pair and per field in
 |---|---|---|
 | 0 | Scaffold, SQLite warehouse, config | Done |
 | 1 | Source adapter contract, Yahoo adapter, landing, ingest audit, scheduled ingest | Done, first snapshot 2026-09-29 |
-| 2 | Security master (done: statuses, renames), trading calendar, staging normalisation | Partly done |
+| 2 | Security master (statuses, renames), trading calendar, staging, data quality checks | Done; ISINs still to populate |
 | 3 | Recon engine: full outer join, tolerances, classification | |
 | 4 | Break store: lifecycle, idempotent upsert, ageing | |
-| 5 | Seeded break suite and completeness assertions | Ingest tests done |
+| 5 | Seeded break suite and completeness assertions | Ingest, calendar and staging tests done |
 | 6 | Excel break report and recon summary | |
 | 7 | Write-up: noise reduction and NAV-bp cost | |
 | 8 | Second source or restatement recon; holdings recon (synthetic EasyEquities export) | |
@@ -82,3 +83,9 @@ If time runs short, cut phase 8 before phase 5.
 | No primary key on `raw_price` | Vendor duplicates must reach the recon as `DUP` breaks, not vanish on load. Idempotency is by partition instead. |
 | Adapters return unconverted data | Unit and symbol conversion happen in staging, where they are visible and testable. |
 | Retire, never delete, securities | Historical breaks reference them. |
+| Calendar from holiday law, not vendor dates | A calendar derived from Yahoo's own dates would mark 28 September 2026 as a holiday and hide the gap it is meant to catch. |
+| Flag, never repair | A corrected price hides the break. Staging converts by the reported unit and flags anomalies; the recon decides what they mean. |
+| Unit check uses the two nearest bars | A glitch is ~100x off both; a genuine share consolidation moves once and stays, so one reference clears it. At the edge of a series, the two nearest on one side are used, so today's bar is still checked. |
+| Unit band is 80x to 125x | Calibrated on real data: a ±5% band missed CMH on 2025-04-25, which also moved 10% that day. |
+| Each snapshot records its session cutoff | The last complete session at fetch time. Without it, a vendor that stops early looks like a short history rather than a missing day. |
+| Warehouse schema is versioned | A warehouse built by older code is refused with a prompt to rebuild, rather than failing halfway through a load. |

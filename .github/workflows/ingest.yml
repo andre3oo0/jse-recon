@@ -21,6 +21,10 @@ on:
         description: Replace today's snapshot if it already exists
         type: boolean
         default: false
+      dry_run:
+        description: Fetch and report coverage, but commit nothing
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -69,6 +73,7 @@ jobs:
           python -m src.ingest --period "$PERIOD" --min-coverage 0.95 $REFETCH 2>&1 | tee ingest.log
 
       - name: Commit snapshot
+        if: ${{ !inputs.dry_run }}
         working-directory: data/landing
         shell: bash
         run: |

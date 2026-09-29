@@ -8,7 +8,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from src.sources.base import PRICE_COLUMNS, PriceSource, SymbolStatus
-from src.sources.http import session
+from src.sources.http import backoff_seconds, retryable, session
 
 URL = "https://eodhd.com/api/eod/{symbol}"
 PERIOD_DAYS = {"10d": 14, "1mo": 31, "3mo": 92, "6mo": 183, "1y": 366, "2y": 731, "5y": 1827}
@@ -21,9 +21,10 @@ class MissingApiKey(RuntimeError):
 class EodhdSource(PriceSource):
     name = "eodhd"
 
-    def __init__(self, suffix: str = ".JSE", attempts: int = 2, api_key=None):
+    def __init__(self, suffix: str = ".JSE", attempts: int = 3, api_key=None, sleep=time.sleep):
         self.suffix = suffix
         self.attempts = attempts
+        self.sleep = sleep
         self.api_key = api_key if api_key is not None else os.environ.get("EODHD_API_KEY", "")
         self.http = session()
 
@@ -59,8 +60,13 @@ class EodhdSource(PriceSource):
                 )
                 if r.status_code == 404:
                     return empty, SymbolStatus(symbol, "empty", 0)
+                if retryable(r.status_code):
+                    last_error = self.redact(f"HTTP {r.status_code}: {r.text[:200]}")
+                    if attempt < self.attempts:
+                        self.sleep(backoff_seconds(r, attempt))
+                    continue
                 if r.status_code != 200:
-                    # 402/403 mean the plan does not cover the ticker; retrying spends calls for nothing
+                    # 402/403 mean the plan or daily allowance does not cover it; retrying spends calls for nothing
                     return empty, SymbolStatus(symbol, "error", 0, error=self.redact(f"HTTP {r.status_code}: {r.text[:200]}"))
                 rows = r.json()
                 if not rows:
@@ -68,8 +74,8 @@ class EodhdSource(PriceSource):
                 return self._to_frame(symbol, rows), SymbolStatus(symbol, "ok", len(rows))
             except Exception as exc:  # noqa: BLE001 - one bad symbol must not sink the run
                 last_error = self.redact(f"{type(exc).__name__}: {exc}")
-            if attempt < self.attempts:
-                time.sleep(2 ** attempt)
+                if attempt < self.attempts:
+                    self.sleep(backoff_seconds(None, attempt))
         return empty, SymbolStatus(symbol, "error", 0, error=last_error[:500])
 
     def _to_frame(self, symbol: str, rows: list[dict]) -> pd.DataFrame:

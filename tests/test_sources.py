@@ -25,6 +25,7 @@ AFX_PAGE = """
 class Response:
     def __init__(self, status_code, body):
         self.status_code, self.text = status_code, body if isinstance(body, str) else json.dumps(body)
+        self.headers = {}
 
     def json(self):
         return json.loads(self.text)
@@ -41,6 +42,8 @@ class Http:
     def get(self, url, params=None, timeout=None):
         self.calls.append((url, params))
         result = self.responses[url.rsplit("/", 1)[-1]]
+        if isinstance(result, list):
+            result = result.pop(0)
         if isinstance(result, Exception):
             raise result
         return result
@@ -48,7 +51,7 @@ class Http:
 
 class EodhdTest(unittest.TestCase):
     def source(self, responses):
-        src = EodhdSource(api_key=KEY)
+        src = EodhdSource(api_key=KEY, sleep=lambda s: None)
         src.http = Http(responses)
         return src
 
@@ -65,6 +68,17 @@ class EodhdTest(unittest.TestCase):
         _, [status] = src.fetch(["SOL.JSE"], "1y")
         self.assertEqual((status.status, status.error), ("error", "HTTP 403: Forbidden"))
         self.assertEqual(len(src.http.calls), 1)
+
+    def test_rate_limit_is_retried_after_the_servers_delay(self):
+        waits = []
+        limited = Response(429, "Too Many Requests")
+        limited.headers = {"Retry-After": "5"}
+        rows = [{"date": "2026-09-28", "close": 23024, "adjusted_close": 23024, "volume": 1}]
+        src = self.source({})
+        src.sleep = waits.append
+        src.http = Http({"SOL.JSE": [limited, Response(200, rows)]})
+        _, [status] = src.fetch(["SOL.JSE"], "1y")
+        self.assertEqual((status.status, waits), ("ok", [6.0]))
 
     def test_api_key_never_reaches_the_record(self):
         src = self.source({"SOL.JSE": ConnectionError(f"failed: https://eodhd.com/api/eod/SOL.JSE?api_token={KEY}")})
@@ -91,7 +105,8 @@ class AfxTest(unittest.TestCase):
 
     def test_waits_between_pages_as_robots_txt_asks(self):
         waits = []
-        src = AfxSource("https://afx.test/jse/{code}.html", crawl_delay_seconds=60, sleep=waits.append)
+        src = AfxSource("https://afx.test/jse/{code}.html", crawl_delay_seconds=60, sleep=waits.append,
+                        clock=lambda: 0.0)
         src.http = Http({"sol.html": Response(200, AFX_PAGE), "npn.html": Response(404, ""), "sbk.html": Response(200, AFX_PAGE)})
         _, statuses = src.fetch(["SOL", "NPN", "SBK"], "10d")
         self.assertEqual(waits, [60, 60])
@@ -100,7 +115,8 @@ class AfxTest(unittest.TestCase):
 
     def test_stops_after_repeated_failures(self):
         waits = []
-        src = AfxSource("https://afx.test/jse/{code}.html", sleep=waits.append, attempts=1, give_up_after=2)
+        src = AfxSource("https://afx.test/jse/{code}.html", sleep=waits.append, clock=lambda: 0.0, attempts=1,
+                        give_up_after=2)
         src.http = Http({f"{c}.html": ConnectionError("refused") for c in ("aaa", "bbb", "ccc", "ddd")})
         _, statuses = src.fetch(["AAA", "BBB", "CCC", "DDD"], "10d")
         self.assertEqual(len(src.http.calls), 2)

@@ -16,13 +16,22 @@ class AfxSource(PriceSource):
     name = "afx"
 
     def __init__(self, url: str, crawl_delay_seconds: float = 60, attempts: int = 2, sleep=time.sleep,
-                 give_up_after: int = 3):
+                 clock=time.monotonic, give_up_after: int = 3):
         self.url = url
         self.delay = crawl_delay_seconds
         self.attempts = attempts
         self.give_up_after = give_up_after
-        self.sleep = sleep
+        self.sleep, self.clock = sleep, clock
+        self.last_request = None
         self.http = session()
+
+    def throttle(self) -> None:
+        # The crawl delay is a minimum gap between requests, so time spent loading a page counts towards it
+        if self.last_request is not None:
+            wait = self.delay - (self.clock() - self.last_request)
+            if wait > 0:
+                self.sleep(wait)
+        self.last_request = self.clock()
 
     def vendor_symbol(self, security_id: str) -> str:
         return security_id
@@ -35,8 +44,6 @@ class AfxSource(PriceSource):
                 statuses += [SymbolStatus(s, "error", 0, error=f"Skipped after {failures} consecutive failures")
                              for s in symbols[i:]]
                 break
-            if i:
-                self.sleep(self.delay)
             df, status = self._fetch_one(symbol)
             failures = failures + 1 if status.status == "error" else 0
             frames.append(df)
@@ -50,6 +57,7 @@ class AfxSource(PriceSource):
         last_error = None
         for attempt in range(1, self.attempts + 1):
             try:
+                self.throttle()
                 r = self.http.get(self.url.format(code=symbol.lower()), timeout=(10, 30))
                 if r.status_code == 404:
                     return empty, SymbolStatus(symbol, "empty", 0)
@@ -57,8 +65,6 @@ class AfxSource(PriceSource):
                 return self.parse(symbol, r.text)
             except Exception as exc:  # noqa: BLE001 - one bad symbol must not sink the run
                 last_error = f"{type(exc).__name__}: {exc}"
-            if attempt < self.attempts:
-                self.sleep(self.delay)
         return empty, SymbolStatus(symbol, "error", 0, error=last_error[:500])
 
     @staticmethod

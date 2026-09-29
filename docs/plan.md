@@ -96,4 +96,5 @@ If time runs short, cut phase 8 before phase 5.
 | Rotated sources take the least recently tried securities | EODHD's 20 free calls and AFX's one page a minute still cover all 107 securities within a week; a failed day is picked up the next day. |
 | Units a vendor does not report are assumed in staging | Landing records what the vendor said, including silence. The assumption sits in `sources.yaml` with its evidence, and staged rows are flagged `unit_assumed`. |
 | AFX runs locally, never through proxies | Its servers drop connections from cloud runners, which is the site's choice to make. |
+| HTTP follows the football-analytics client | OS trust store applied best-effort when a session is made, 429 and 5xx retried after the server's `Retry-After`, and a crawl delay measured from the previous request. Verification is never switched off. |
 | Warehouse schema is versioned | A warehouse built by older code is refused with a prompt to rebuild, rather than failing halfway through a load. |

@@ -24,6 +24,10 @@ on:
         description: Securities per rotated source (EODHD, AFX); blank for the configured daily batch
         type: string
         default: ""
+      sources:
+        description: Comma-separated sources to fetch, e.g. afx; blank for all
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -59,6 +63,7 @@ jobs:
         run: python -m src.rebuild
 
       - name: Yahoo snapshot  # inputs pass through env, so a crafted input cannot inject shell
+        if: ${{ !cancelled() && (inputs.sources == '' || inputs.sources == null || contains(inputs.sources, 'yahoo')) }}
         shell: bash
         env:
           PERIOD: ${{ inputs.period || '3mo' }}
@@ -66,7 +71,7 @@ jobs:
         run: python -m src.ingest --source yahoo --period "$PERIOD" --min-coverage 0.95 $REFETCH 2>&1 | tee -a ingest.log
 
       - name: EODHD snapshot
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (inputs.sources == '' || inputs.sources == null || contains(inputs.sources, 'eodhd')) }}
         shell: bash
         env:
           EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
@@ -75,7 +80,8 @@ jobs:
         run: python -m src.ingest --source eodhd --min-coverage 0.8 $REFETCH ${BATCH:+--batch "$BATCH"} 2>&1 | tee -a ingest.log
 
       - name: AFX snapshot  # about 22 minutes: one page a minute, as the site's robots.txt asks
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (inputs.sources == '' || inputs.sources == null || contains(inputs.sources, 'afx')) }}
+        timeout-minutes: 35  # a hung site fails this step, not the job, so the other snapshots still commit
         shell: bash
         env:
           REFETCH: ${{ inputs.refetch && '--refetch' || '' }}

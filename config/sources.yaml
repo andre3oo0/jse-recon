@@ -7,7 +7,7 @@ eodhd:
   suffix: ".JSE"
   period: 1y  # the free plan's full history, so each rotated fetch overlaps the others
   daily_batch: 18  # the free plan allows 20 calls a day; two spare for retries
-  assumed_unit: null  # the API does not report one; staging applies this, landing keeps the silence
+  assumed_unit: ZAc  # not reported by the API; ABG.JSE closed 21743.0 on 2026-09-28, the same as Yahoo's 21743 ZAc
 
 afx:
   url: "https://afx.kwayisi.org/jse/{code}.html"

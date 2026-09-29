@@ -76,9 +76,10 @@ def land(source: PriceSource, symbols, period, snapshot_date, refetch, now=None,
     returned = sum(s.status == "ok" for s in statuses)
     if symbols and returned / len(symbols) < min_coverage:
         failed = ", ".join(s.vendor_symbol for s in statuses if s.status != "ok")
+        reasons = sorted({s.error or s.status for s in statuses if s.status != "ok"})[:3]
         raise IncompleteSnapshot(
             f"{source.name} returned {returned}/{len(symbols)} symbols, below the "
-            f"{min_coverage:.0%} gate. Nothing landed. Failed: {failed}"
+            f"{min_coverage:.0%} gate. Nothing landed. Failed: {failed}. Reasons: {' | '.join(reasons)}"
         )
 
     prices = completed_sessions(fetched, snapshot_date, now)

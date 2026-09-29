@@ -15,10 +15,12 @@ UNIT_NOTE = "Monetary values are quoted in South African Rand (ZAR)"
 class AfxSource(PriceSource):
     name = "afx"
 
-    def __init__(self, url: str, crawl_delay_seconds: float = 60, attempts: int = 2, sleep=time.sleep):
+    def __init__(self, url: str, crawl_delay_seconds: float = 60, attempts: int = 2, sleep=time.sleep,
+                 give_up_after: int = 3):
         self.url = url
         self.delay = crawl_delay_seconds
         self.attempts = attempts
+        self.give_up_after = give_up_after
         self.sleep = sleep
         self.http = session()
 
@@ -26,11 +28,17 @@ class AfxSource(PriceSource):
         return security_id
 
     def fetch(self, symbols, period):
-        frames, statuses = [], []
+        frames, statuses, failures = [], [], 0
         for i, symbol in enumerate(symbols):
+            if failures >= self.give_up_after:
+                # The site is refusing or unreachable; stop rather than keep knocking for the rest of the batch
+                statuses += [SymbolStatus(s, "error", 0, error=f"Skipped after {failures} consecutive failures")
+                             for s in symbols[i:]]
+                break
             if i:
                 self.sleep(self.delay)
             df, status = self._fetch_one(symbol)
+            failures = failures + 1 if status.status == "error" else 0
             frames.append(df)
             statuses.append(status)
         frames = [f for f in frames if not f.empty]
@@ -42,7 +50,7 @@ class AfxSource(PriceSource):
         last_error = None
         for attempt in range(1, self.attempts + 1):
             try:
-                r = self.http.get(self.url.format(code=symbol.lower()), timeout=30)
+                r = self.http.get(self.url.format(code=symbol.lower()), timeout=(10, 30))
                 if r.status_code == 404:
                     return empty, SymbolStatus(symbol, "empty", 0)
                 r.raise_for_status()

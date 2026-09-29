@@ -98,6 +98,15 @@ class AfxTest(unittest.TestCase):
         self.assertEqual([s.status for s in statuses], ["ok", "empty", "ok"])
 
 
+    def test_stops_after_repeated_failures(self):
+        waits = []
+        src = AfxSource("https://afx.test/jse/{code}.html", sleep=waits.append, attempts=1, give_up_after=2)
+        src.http = Http({f"{c}.html": ConnectionError("refused") for c in ("aaa", "bbb", "ccc", "ddd")})
+        _, statuses = src.fetch(["AAA", "BBB", "CCC", "DDD"], "10d")
+        self.assertEqual(len(src.http.calls), 2)
+        self.assertEqual([s.error for s in statuses[2:]], ["Skipped after 2 consecutive failures"] * 2)
+
+
 class RotationTest(unittest.TestCase):
     def setUp(self):
         self.conn = db.connect(Path(tempfile.mkdtemp()) / "test.db")

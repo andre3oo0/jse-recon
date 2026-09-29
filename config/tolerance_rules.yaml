@@ -16,8 +16,10 @@ price_recon:
 
 holdings_recon:
   easyequities_vs_internal:
-    quantity:     { abs_floor: 0.0001, rel_pct: 0.00 }
-    market_value: { abs_floor_zar: 1.00, rel_pct: 0.10 }
+    # The export has no quantity column, so quantity is implied from value and tested in rands, not shares.
+    position_value: { abs_floor_zar: 1.00, rel_pct: 0.10 }
+    price: { abs_floor_zar: 0.01, rel_pct: 0.05 }
+    settlement_days: 3  # JSE equities settle T+3
 
 # Data quality rules that are not variance checks.
 dq:

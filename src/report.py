@@ -9,7 +9,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from src import answers, config, db, ingest, staging
+from src import answers, config, db, holdings, ingest, staging
 
 FONT = "Arial"
 HEADER_FILL = PatternFill("solid", fgColor="1F3864")
@@ -129,6 +129,22 @@ def dq_rows(conn):
     return rows
 
 
+def holding_rows(conn):
+    latest = holdings.latest_file(conn)
+    if not latest:
+        return None, []
+    rows = conn.execute(
+        """
+        SELECT key_id, status, broker_lines, broker_value, broker_price, implied_qty, book_qty, settled_qty,
+               our_price, prev_price, book_value, value_diff, explanation
+        FROM holding_recon_result WHERE file_id = ?
+        ORDER BY status = 'MATCH', ABS(COALESCE(value_diff, 1e12)) DESC, key_id
+        """,
+        (latest[0],),
+    ).fetchall()
+    return latest, rows
+
+
 def style(ws):
     for row in ws.iter_rows():
         for cell in row:
@@ -187,6 +203,12 @@ def summary(ws, day, generated):
         ("Missing prices", '=COUNTIFS(\'Data Quality\'!$A:$A,"Missing price")', "Data Quality"),
         ("Frozen prices", '=COUNTIFS(\'Data Quality\'!$A:$A,"Frozen price")', "Data Quality"),
         ("Prices on closed days", '=COUNTIFS(\'Data Quality\'!$A:$A,"Price on closed day")', "Data Quality"),
+        ("Broker statement against the internal book", None, None),
+        ("Positions compared", "=COUNTA(Holdings!$B:$B)-1", "Holdings"),
+        ("Positions agreeing", '=COUNTIFS(Holdings!$B:$B,"MATCH")', "Holdings"),
+        ("Holdings breaks", '=COUNTA(Holdings!$B:$B)-1-COUNTIFS(Holdings!$B:$B,"MATCH")', "Holdings"),
+        ("Net difference (R)", "=SUM(Holdings!$L:$L)", "Holdings"),
+        ("Gross difference (R)", "=SUMPRODUCT(ABS(Holdings!$L$2:$L$2000))", "Holdings"),
     ]
     for r, (label, formula, tab) in enumerate(lines, start=4):
         ws[f"A{r}"] = label
@@ -196,7 +218,7 @@ def summary(ws, day, generated):
             ws[f"A{r}"].font = Font(name=FONT, bold=True)
             continue
         ws[f"B{r}"] = formula
-        ws[f"B{r}"].number_format = DEC if "AVERAGE" in formula else INT
+        ws[f"B{r}"].number_format = DEC if "AVERAGE" in formula else ZAR if "(R)" in label else INT
         ws[f"C{r}"] = f"{tab} tab"
     assert ws["A5"].value == "Open breaks" and ws["A6"].value.startswith("  open 0-1")  # B5 sums B6:B9
     ws.column_dimensions["A"].width = 44
@@ -283,6 +305,17 @@ def build(conn: sqlite3.Connection, path) -> None:
     table(wb.create_sheet("Data Quality"), [
         ("Check", 20, None), ("Security", 10, None), ("Date", 12, DATE), ("Detail", 70, None), ("Source", 10, None),
     ], dq_rows(conn), none)
+
+    latest, rows = holding_rows(conn)
+    table(wb.create_sheet("Holdings"), [
+        ("Security", 10, None), ("Status", 9, None), ("Statement lines", 10, INT), ("Broker value (R)", 15, ZAR),
+        ("Broker price (R)", 13, ZAR), ("Implied quantity", 13, "#,##0.0000"), ("Book quantity", 13, "#,##0.0000"),
+        ("Settled quantity", 13, "#,##0.0000"), ("Our close (R)", 13, ZAR), ("Previous close (R)", 13, ZAR),
+        ("Book at our close (R)", 15, ZAR), ("Difference (R)", 14, ZAR), ("Explanation", 70, None),
+    ], rows, "No broker statement loaded")
+    if latest:
+        wb["Holdings"]["O1"] = ("SYNTHETIC statement" if latest[2] else "Statement") + f" as of {latest[1]}"
+        wb["Holdings"]["O1"].font = Font(name=FONT, bold=True, color="C00000")
 
     ws = wb.create_sheet("Answers")
     ws.column_dimensions["A"].width = 150

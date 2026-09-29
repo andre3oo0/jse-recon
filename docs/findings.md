@@ -243,3 +243,26 @@ would not differ on volume.
   gives up after three consecutive failures.
 
 Evaluation of all nine sources considered: [sources.md](sources.md).
+
+## 2026-09-29: holdings reconciliation (synthetic statement)
+
+These come from a synthetic statement with planted breaks, so they are findings about the control,
+not about any real portfolio. Details: [fixtures/holdings/README.md](../fixtures/holdings/README.md).
+
+### 14. A net check would have passed a statement that was 17% wrong
+
+| Measure | Amount | Share of the book |
+|---|---|---|
+| Net difference | −R4,009 | −0.88% |
+| Gross difference | R77,096 | 16.95% |
+
+A duplicated MTN line (+R26,055) and an unrecorded CLS transfer (+R10,163) offset most of a missing FSR
+position (−R35,243). Checking only the total is a common shortcut, and here it would have hidden three
+real errors. The report and the answers show both figures.
+
+### 15. Not every quantity difference is an error
+
+ABG's statement holds 87.4 shares against 110.1 in the book. The difference is a buy on 23 September
+that settles T+3 on the 29th, because Heritage Day on the 24th pushes settlement back a day. A naive
+recon calls that a quantity break; this one classifies it `SETTLE`, and would call it `QTY` if the
+same gap came from a trade that should already have settled.

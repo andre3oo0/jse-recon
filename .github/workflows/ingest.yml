@@ -114,6 +114,11 @@ jobs:
         shell: bash
         run: python -m src.recon 2>&1 | tee recon.log
 
+      - name: Holdings  # the synthetic statement must still produce every planted outcome on real prices
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: python -m src.holdings --check-expected 2>&1 | tee holdings.log
+
       - name: Answers
         if: ${{ !cancelled() }}
         shell: bash
@@ -160,6 +165,10 @@ jobs:
             echo "Download the Excel report from this run's artifacts (break-report)."
             echo '```'
             cat report_check.log 2>/dev/null || echo "Report check did not run."
+            echo '```'
+            echo "### Holdings"
+            echo '```'
+            cat holdings.log 2>/dev/null || echo "Holdings step did not run."
             echo '```'
             echo "### Reconciliation"
             echo '```'

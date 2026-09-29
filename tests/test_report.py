@@ -11,7 +11,8 @@ from openpyxl import load_workbook
 from src import config, db, lifecycle, report, trading_calendar
 from tests.test_lifecycle import D1, D2, D3, D6, DAY, NAME
 
-SHEETS = ["Summary", "Open Breaks", "New Today", "Cleared", "Restatements", "Data Quality", "Answers", "About"]
+SHEETS = ["Summary", "Open Breaks", "New Today", "Cleared", "Restatements", "Data Quality", "Holdings", "Answers",
+          "About"]
 
 
 class ReportTest(unittest.TestCase):
@@ -72,7 +73,7 @@ class ReportTest(unittest.TestCase):
 
     def test_summary_formulas_count_the_columns_they_name(self):
         wb = self.build()
-        headers = {ws.title: {c.column_letter: c.value for c in ws[1]} for ws in wb.worksheets[1:6]}
+        headers = {ws.title: {c.column_letter: c.value for c in ws[1]} for ws in wb.worksheets[1:]}
         expected = {
             ("Open Breaks", "I"): "Age bucket",
             ("New Today", "B"): "Security",
@@ -80,13 +81,15 @@ class ReportTest(unittest.TestCase):
             ("Cleared", "J"): "State",
             ("Restatements", "C"): "Status",
             ("Data Quality", "A"): "Check",
+            ("Holdings", "B"): "Status",
+            ("Holdings", "L"): "Difference (R)",
         }
         seen = set()
         for row in wb["Summary"].iter_rows(min_col=2, max_col=2):
             formula = row[0].value
             if not (isinstance(formula, str) and formula.startswith("=")):
                 continue
-            for sheet, col in re.findall(r"'?([A-Z][A-Za-z ]+)'?!\$([A-Z]):", formula):
+            for sheet, col in re.findall(r"'?([A-Z][A-Za-z ]+)'?!\$([A-Z])(?:\$\d+)?:", formula):
                 self.assertEqual(headers[sheet][col], expected[(sheet, col)], formula)
                 seen.add((sheet, col))
         self.assertEqual(seen, set(expected))

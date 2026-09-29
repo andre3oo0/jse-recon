@@ -35,23 +35,25 @@ them as a working assumption until a real export confirms them.
 person's financial record. Using someone else's would not be
 appropriate, so the project does not look for one.
 
-## How the project proceeds
+## What was built
 
-1. **Synthetic export, clearly labelled.** Generate a holdings file in
-   the portal's schema from real Yahoo closes, so values are realistic.
-   It is fixture data and says so in its filename and header.
-2. **Keep the quirks.** The formatting is the valuable part:
-   - `R2 000.00` strings need locale-aware parsing, and a naive
-     `float()` fails on them.
-   - `EQU.ZA.SOL` needs its own security_xref mapping.
-   - If `current_price` turns out to be in rands, it meets Yahoo's cents
-     head-on, which gives a natural `UNIT` test.
-3. **Seed the defects** from the break taxonomy (missing holding,
-   duplicate line, quantity mismatch) so the holdings recon has known
-   answers.
-4. **Swap in a real export later.** The synthetic file's schema is the
-   adapter contract. A real export replaces the fixture without
-   changing the recon.
+A synthetic statement in the portal's format, generated from real Yahoo closes, with planted breaks
+and known answers. Its files, planted outcomes and regeneration are described in
+[fixtures/holdings/README.md](../fixtures/holdings/README.md).
+
+Building against the real format forced three design decisions:
+
+- **Quantity is implied, so it is tested in rands.** The export has a value and a price but no
+  quantity, and EasyEquities sells fractional shares. Value divided by price carries up to half a
+  cent of rounding, so a position breaks when its value is out by more than R1.00 and 0.10%, not when
+  its share count differs in the fourth decimal.
+- **ISIN before contract code.** A broker can keep a security's old code after a rename, as it would
+  have for Transaction Capital becoming Nutun. The ISIN survives the rename, so it is tried first.
+- **Amounts are parsed, never assumed.** `R2 000.00` with an ordinary space, a non-breaking space, or
+  a narrow one; commas as thousands or decimal separators. An amount that cannot be read is a `PARSE`
+  break with an unknown difference, never zero.
+
+A real export would replace the fixture without changing the recon: the file format is the contract.
 
 ## Getting a real export
 

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from src import db, report
+from src import db, holdings, report
 
 ERRORS = ("#VALUE!", "#DIV/0!", "#REF!", "#NAME?", "#NULL!", "#NUM!", "#N/A")
 MACRO = """<?xml version="1.0" encoding="UTF-8"?>
@@ -77,14 +77,34 @@ def expected_summary(conn) -> dict[str, int]:
         "Missing prices": dq["Missing price"],
         "Frozen prices": dq["Frozen price"],
         "Prices on closed days": dq["Price on closed day"],
+        **holdings_expected(conn),
+    }
+
+
+def holdings_expected(conn) -> dict:
+    latest, rows = report.holding_rows(conn)
+    if not latest:
+        return {"Positions compared": 0, "Holdings breaks": 0}
+    net, gross = holdings.misstatement(conn, latest[0])
+    return {
+        "Positions compared": len(rows),
+        "Positions agreeing": sum(r[1] == "MATCH" for r in rows),
+        "Holdings breaks": sum(r[1] != "MATCH" for r in rows),
+        "Net difference (R)": round(net, 2),
+        "Gross difference (R)": round(gross, 2),
     }
 
 
 def summary_mismatches(path: Path, expected: dict[str, int]) -> list[str]:
     ws = load_workbook(path, data_only=True)["Summary"]
     actual = {r[0]: r[1] for r in ws.iter_rows(min_col=1, max_col=2, values_only=True) if r[0]}
+    def agrees(got, want):
+        if isinstance(want, float):
+            return isinstance(got, (int, float)) and abs(got - want) < 0.005
+        return got == want
+
     return [f"{label}: workbook says {actual.get(label)!r}, warehouse says {n}"
-            for label, n in expected.items() if actual.get(label) != n]
+            for label, n in expected.items() if not agrees(actual.get(label), n)]
 
 
 def main(argv=None) -> int:

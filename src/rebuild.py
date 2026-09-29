@@ -3,7 +3,7 @@
 import json
 import sys
 
-from src import config, db, ingest, security_master, staging
+from src import config, db, holdings, ingest, security_master, staging
 
 
 def main() -> int:
@@ -23,6 +23,8 @@ def main() -> int:
         print(f"loaded {manifest['source']} {manifest['snapshot_date']}: {manifest['rows']:,} rows")
 
     staged = staging.build(conn)
+    if holdings.EXPORT.exists():
+        holdings.run(conn)
     print(f"\n{len(manifests)} snapshots, {staged:,} staged rows in {config.DB_PATH.name}")
     return 0
 

@@ -3,7 +3,7 @@
 import sqlite3
 import sys
 
-from src import config, db, lifecycle
+from src import config, db, holdings, lifecycle
 
 MATERIALITY_BP = 50.0  # ASISA NAV Standard s10.3.3: suggested maximum tolerance for a pricing error, 0.5% of NAV
 
@@ -174,7 +174,35 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
 
     out.append("8. When sources disagree, does it get fixed, and how fast?")
     out.extend(resolution(conn) or ["   No disagreements between sources recorded yet."])
+
+    out.append("9. Does the broker statement agree with the internal book?")
+    out.extend(statement(conn) or ["   No broker statement loaded."])
     return out
+
+
+def statement(conn: sqlite3.Connection) -> list[str]:
+    latest = holdings.latest_file(conn)
+    if not latest:
+        return []
+    file_id, as_of, synthetic = latest
+    got = holdings.results(conn, file_id)
+    breaks = {}
+    for status in got.values():
+        if status != "MATCH":
+            breaks[status] = breaks.get(status, 0) + 1
+    net, gross = holdings.misstatement(conn, file_id)
+    book = conn.execute("SELECT SUM(book_value) FROM holding_recon_result WHERE file_id = ?", (file_id,)).fetchone()[0]
+    label = "A SYNTHETIC statement (planted breaks, real prices)" if synthetic else "The statement"
+    lines = [f"   {label} for {as_of}: {len(got) - sum(breaks.values())} of {len(got)} positions agree; breaks: "
+             + ", ".join(f"{s} {n}" for s, n in sorted(breaks.items())) + "."]
+    if book:
+        lines.append(f"   Net, the statement is out by R{net:+,.0f} ({net / book:+.2%}), which looks close. Gross it is "
+                     f"out by R{gross:,.0f} ({gross / book:.2%}): netting lets a duplicated line hide a missing one.")
+    if breaks.get("SETTLE"):
+        n = breaks["SETTLE"]
+        lines.append(f"   {n} {'break is a trade' if n == 1 else 'breaks are trades'} not yet settled (T+3), "
+                     f"a timing difference rather than an error.")
+    return lines
 
 
 def resolution(conn: sqlite3.Connection) -> list[str]:

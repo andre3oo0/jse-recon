@@ -62,7 +62,7 @@ percentage, set per source pair and per field in
 | 5 | Seeded break suite and completeness assertions | Done: one planted defect per break type |
 | 6 | Excel break report: summary, open, new, cleared, restatements, data quality, answers, definitions | Done; published daily as a run artifact |
 | 7 | Write-up: noise reduction and NAV-bp cost | |
-| 8 | Second source (EODHD daily; AFX built but parked); holdings recon (synthetic EasyEquities export) | Source done; holdings to do |
+| 8 | Second source (EODHD daily; AFX built but parked); holdings recon (synthetic EasyEquities export) | Done; NTU joins the fixture once its closes are in the warehouse |
 
 If time runs short, cut phase 8 before phase 5.
 
@@ -106,4 +106,10 @@ If time runs short, cut phase 8 before phase 5.
 | The report is recalculated and cross-checked before publishing | openpyxl writes formulas without results, so CI recalculates in LibreOffice, fails on any formula error, then compares every Summary figure with the same count taken from the database. A formula that evaluates cleanly but counts the wrong column still fails. |
 | A test ties each Summary formula to a column header | The cheap local guard for the same failure: if a column moves, the test names the formula that now points at the wrong one. |
 | Reports are run artifacts, not commits | They are derived from snapshots and regenerated daily; 30 days of history is enough to compare with yesterday. |
+| Holdings quantity is implied and tested in rands | The EasyEquities export has no quantity column and shares are fractional; a position breaks when its value is out by more than R1.00 and 0.10%. |
+| Trade-date book, settlement-date broker | JSE equities settle T+3 on the trading calendar. A gap that equals unsettled trades is `SETTLE`, a timing difference, not `QTY`. |
+| Holdings map by ISIN before contract code | A broker can keep an old code after a rename; the ISIN survives it. |
+| An unreadable amount has an unknown difference | Treating it as zero would report a misstatement nobody measured. |
+| Report net and gross differences | Netting lets a duplicated line hide a missing one: the synthetic statement is 0.88% out net and 16.95% gross. |
+| Fixtures are generated, deterministic and self-verifying | Real closes, a fixed seed, and a generator that refuses to write unless every planted outcome holds; CI checks them again daily. |
 | Warehouse schema is versioned | A warehouse built by older code is refused with a prompt to rebuild, rather than failing halfway through a load. |

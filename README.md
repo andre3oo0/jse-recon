@@ -60,6 +60,18 @@ sources and reviewing each price against the previous one. Those are the two che
   wrong with a fund valued at Friday's prices; the only way to know is to check every expected day
   against an independent calendar.
 
+## The same control for holdings
+
+A fund's statement from its broker or custodian has to agree with its own book of record, and with an
+independent valuation. I built that reconciliation too. With no real brokerage export available, I
+generated a **synthetic** EasyEquities-style statement from real closing prices and planted eight kinds
+of break in it, from a duplicated line to a trade that had not yet settled. The tool finds all eight
+and raises no false alarms on the traps, such as a value 40 cents out.
+
+The lesson it demonstrates: **netted, the statement was out by just 0.88%; gross, by 16.95%.** A
+duplicated line had hidden most of a missing position. A reconciliation that checks only the total
+would have passed it.
+
 ## How the tool found this
 
 1. **Collect.** An automated job saves every weekday's closing prices exactly as received.
@@ -103,7 +115,7 @@ for 30 days.
 - [x] An independent commercial price source, chosen from nine evaluated
 - [x] Tracking each difference from first appearance until it is resolved
 - [x] Excel report of breaks for an operations team, checked before it is published
-- [ ] Holdings reconciliation against a brokerage-style export
+- [x] Holdings reconciliation against a brokerage-style export (synthetic, with planted breaks)
 
 ## Running it
 

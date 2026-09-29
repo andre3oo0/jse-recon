@@ -1,5 +1,5 @@
 -- Warehouse schema. Needs SQLite 3.39+ for FULL OUTER JOIN in the recon layer.
-PRAGMA user_version = 7;  -- bump on any change so src/db.py asks for a rebuild
+PRAGMA user_version = 8;  -- bump on any change so src/db.py asks for a rebuild
 PRAGMA foreign_keys = ON;
 
 -- One row per security, keyed on the current JSE alpha code; ISIN should replace it once populated.
@@ -171,4 +171,72 @@ CREATE TABLE IF NOT EXISTS break_note (
     author      TEXT,
     noted_on    TEXT,
     PRIMARY KEY (recon_name, key_id, price_date)
+);
+
+-- A broker holdings statement as received; file_id is its sha256, so reloading the same file is a no-op.
+CREATE TABLE IF NOT EXISTS holding_file (
+    file_id    TEXT PRIMARY KEY,
+    source     TEXT NOT NULL,
+    as_of      TEXT NOT NULL,
+    path       TEXT NOT NULL,
+    lines      INTEGER NOT NULL,
+    synthetic  INTEGER NOT NULL CHECK (synthetic IN (0, 1)),
+    loaded_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Statement lines exactly as written, strings and all; parsing happens in stg_holding.
+CREATE TABLE IF NOT EXISTS raw_holding (
+    file_id         TEXT NOT NULL REFERENCES holding_file (file_id),
+    line_no         INTEGER NOT NULL,
+    name            TEXT,
+    contract_code   TEXT,
+    purchase_value  TEXT,
+    current_value   TEXT,
+    current_price   TEXT,
+    isin            TEXT,
+    PRIMARY KEY (file_id, line_no)
+);
+
+-- The internal book of record, on a trade-date basis.
+CREATE TABLE IF NOT EXISTS ledger_txn (
+    reference    TEXT PRIMARY KEY,
+    trade_date   TEXT NOT NULL,
+    security_id  TEXT NOT NULL,
+    side         TEXT NOT NULL CHECK (side IN ('BUY', 'SELL')),
+    quantity     REAL NOT NULL CHECK (quantity > 0),
+    price_zar    REAL NOT NULL,
+    fees_zar     REAL NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS stg_holding (
+    file_id             TEXT NOT NULL,
+    line_no             INTEGER NOT NULL,
+    key_id              TEXT NOT NULL,  -- security_id, or UNMAPPED:<contract code>
+    mapped_by           TEXT CHECK (mapped_by IN ('isin', 'code')),
+    contract_code       TEXT,
+    isin                TEXT,
+    purchase_value_zar  REAL,
+    current_value_zar   REAL,
+    current_price_zar   REAL,
+    parse_errors        TEXT,  -- NULL when every amount on the line was read
+    PRIMARY KEY (file_id, line_no)
+);
+
+CREATE TABLE IF NOT EXISTS holding_recon_result (
+    file_id         TEXT NOT NULL REFERENCES holding_file (file_id),
+    key_id          TEXT NOT NULL,
+    status          TEXT NOT NULL CHECK (status IN (
+                        'MATCH', 'DUP', 'ONE_A', 'ONE_B', 'PARSE', 'UNIT', 'SETTLE', 'QTY', 'STALE', 'PRICE', 'NOPRICE')),
+    broker_lines    INTEGER,
+    broker_value    REAL,
+    broker_price    REAL,
+    implied_qty     REAL,  -- broker value divided by broker price
+    book_qty        REAL,  -- trade-date basis
+    settled_qty     REAL,  -- trades settled by the statement date
+    our_price       REAL,
+    prev_price      REAL,
+    book_value      REAL,  -- book quantity at our independently checked price
+    value_diff      REAL,  -- what the statement over- or understates against that valuation
+    explanation     TEXT,
+    PRIMARY KEY (file_id, key_id)
 );

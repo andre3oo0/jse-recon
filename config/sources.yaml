@@ -9,13 +9,11 @@ eodhd:
   daily_batch: 18  # the free plan allows 20 calls a day; two spare for retries
   assumed_unit: ZAc  # not reported by the API; ABG.JSE closed 21743.0 on 2026-09-28, the same as Yahoo's 21743 ZAc
 
-afx:  # run locally: connections from GitHub's runners time out on every IPv4 address
+afx:  # parked: the site drops connections from GitHub's runners, and nothing runs locally
   url: "https://afx.kwayisi.org/jse/{code}.html"
   period: 10d  # each page shows the last ten sessions
   daily_batch: 22
   crawl_delay_seconds: 60  # asked for by the site's robots.txt
 
-recon_pairs:
+recon_pairs:  # add [yahoo, afx] and [eodhd, afx] back if AFX ever runs
   - [yahoo, eodhd]
-  - [yahoo, afx]
-  - [eodhd, afx]

@@ -1,5 +1,5 @@
 -- Warehouse schema. Needs SQLite 3.39+ for FULL OUTER JOIN in the recon layer.
-PRAGMA user_version = 6;  -- bump on any change so src/db.py asks for a rebuild
+PRAGMA user_version = 7;  -- bump on any change so src/db.py asks for a rebuild
 PRAGMA foreign_keys = ON;
 
 -- One row per security, keyed on the current JSE alpha code; ISIN should replace it once populated.
@@ -142,3 +142,33 @@ CREATE TABLE IF NOT EXISTS recon_result (
 );
 
 CREATE INDEX IF NOT EXISTS ix_recon_result_status ON recon_result (recon_run_id, status);
+
+-- One row per episode of disagreement: from the first sighting until a comparison that matches. Derived; rebuilt.
+CREATE TABLE IF NOT EXISTS break_episode (
+    recon_name       TEXT NOT NULL,
+    key_id           TEXT NOT NULL,
+    price_date       TEXT NOT NULL,
+    first_seen       TEXT NOT NULL,  -- snapshot date of the first comparison that broke
+    last_seen        TEXT NOT NULL,  -- snapshot date of the latest comparison that broke
+    cleared_on       TEXT,  -- snapshot date of the first matching comparison after last_seen
+    observations     INTEGER NOT NULL,
+    first_status     TEXT NOT NULL,
+    latest_status    TEXT NOT NULL,
+    latest_explanation TEXT,
+    age_days         INTEGER NOT NULL,  -- trading days from first_seen to cleared_on, or to the latest comparison
+    state            TEXT NOT NULL CHECK (state IN ('OPEN', 'TIMING', 'CLEARED')),
+    PRIMARY KEY (recon_name, key_id, price_date, first_seen)
+);
+
+-- Analyst notes from config/break_notes.yaml: the one part of the register that cannot be derived.
+CREATE TABLE IF NOT EXISTS break_note (
+    recon_name  TEXT NOT NULL,
+    key_id      TEXT NOT NULL,
+    price_date  TEXT NOT NULL,
+    resolution  TEXT NOT NULL
+                CHECK (resolution IN ('VENDOR_ERROR_A', 'VENDOR_ERROR_B', 'TIMING', 'ACCEPTED', 'INVESTIGATING')),
+    note        TEXT NOT NULL,
+    author      TEXT,
+    noted_on    TEXT,
+    PRIMARY KEY (recon_name, key_id, price_date)
+);

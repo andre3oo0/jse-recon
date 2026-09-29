@@ -27,7 +27,7 @@ vendor feeds ──→ landing/      immutable, one folder per source per snapsh
 security_master ─→ recon (SQL) ←─ tolerance_rules.yaml
 trading_calendar ─┘   │
                       ▼
-                  break_store  stateful: first_seen, last_seen, status, age
+                  break_episode  first_seen, cleared_on, age, state; derived by replaying every snapshot
                       │
                       ▼
               summary + Excel break report + write-up
@@ -58,11 +58,11 @@ percentage, set per source pair and per field in
 | 1 | Source adapter contract, Yahoo adapter, landing, ingest audit, scheduled ingest | Done, first snapshot 2026-09-29 |
 | 2 | Security master (statuses, renames), trading calendar, staging, data quality checks | Done; ISINs still to populate |
 | 3 | Recon engine: full outer join, tolerances, scope, classification; answers report | Done; restatement recon runs daily |
-| 4 | Break store: lifecycle, idempotent upsert, ageing | |
+| 4 | Break register: episodes, clearing, ageing, TIMING, analyst notes | Done; fills as daily comparisons accumulate |
 | 5 | Seeded break suite and completeness assertions | Done: one planted defect per break type |
 | 6 | Excel break report and recon summary | |
 | 7 | Write-up: noise reduction and NAV-bp cost | |
-| 8 | Second and third sources (EODHD daily, AFX locally); holdings recon (synthetic EasyEquities export) | Sources done; holdings to do |
+| 8 | Second source (EODHD daily; AFX built but parked); holdings recon (synthetic EasyEquities export) | Source done; holdings to do |
 
 If time runs short, cut phase 8 before phase 5.
 
@@ -95,6 +95,11 @@ If time runs short, cut phase 8 before phase 5.
 | Output is organised as answers to questions | The project exists to answer whether a feed can be trusted to value a fund; `src.answers` states each answer with its evidence. |
 | Rotated sources take the least recently tried securities | EODHD's 20 free calls and AFX's one page a minute still cover all 107 securities within a week; a failed day is picked up the next day. |
 | Units a vendor does not report are assumed in staging | Landing records what the vendor said, including silence. The assumption sits in `sources.yaml` with its evidence, and staged rows are flagged `unit_assumed`. |
-| AFX runs locally, never through proxies | Its servers drop connections from cloud runners, which is the site's choice to make. |
+| AFX is parked, never proxied | Its servers drop connections from cloud runners, which is the site's choice to make, and every job must run in CI. |
 | HTTP follows the football-analytics client | OS trust store applied best-effort when a session is made, 429 and 5xx retried after the server's `Retry-After`, and a crawl delay measured from the previous request. Verification is never switched off. |
+| The break register is derived, not stored | Every run replays the recon for every stored snapshot, so first sightings, clearing dates and ages are a function of the history and cannot drift or be lost. |
+| A day without a comparison neither breaks nor clears | EODHD compares each security about once a week. A break stays open until a later comparison actually matches, not merely until one is missing. |
+| Restatement breaks are events, not episodes | A restatement is a change between two snapshots; by the next day both sides agree on the new value, so it would always look like it fixed itself. |
+| TIMING means cleared within 2 trading days | Usually one vendor publishing later than the other; set by `timing_clear_days` in `tolerance_rules.yaml`. |
+| Analyst notes live in `config/break_notes.yaml` | The one part of the register that cannot be derived. In version control it has an author, a date and a review trail, and a bad resolution code fails the build. |
 | Warehouse schema is versioned | A warehouse built by older code is refused with a prompt to rebuild, rather than failing halfway through a load. |

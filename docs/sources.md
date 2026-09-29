@@ -3,13 +3,13 @@
 A reconciliation needs records that are independent of each other. This page records which JSE price
 sources were evaluated, which were chosen, and how each one runs.
 
-## Chosen
+## Built
 
 | Source | Role | Access | How it runs |
 |---|---|---|---|
 | Yahoo Finance | The feed under test | No key | Daily in GitHub Actions, all 107 securities, 3-month lookback |
 | EODHD | Independent commercial vendor | Free API key (20 calls a day) | Daily in GitHub Actions, 18 securities a day in rotation, 1-year lookback each |
-| AFX (afx.kwayisi.org) | Third source, tie-breaker and ISINs | No key; public web pages | Locally, 22 securities per run, one page a minute as its robots.txt asks |
+| AFX (afx.kwayisi.org) | Third source, tie-breaker and ISINs | No key; public web pages | **Parked.** The adapter is built and tested, but the site refuses cloud runners and there is no machine to run it on locally |
 
 Rotation takes the securities least recently tried first. Each EODHD call returns a year of history,
 so a security fetched once a week still overlaps Yahoo's lookback completely.
@@ -36,12 +36,13 @@ so a security fetched once a week still overlaps Yahoo's lookback completely.
 - **AFX publishes rands and ISINs.** Its pages state that prices are in rand, and its ISIN for NTU,
   ZAE000167391, matches the JSE's own notice of the Transaction Capital rename.
 - **AFX refuses cloud runners.** From GitHub Actions every IPv4 address timed out on connect; from a
-  local machine the same pages load at once. The site is entitled to that choice, so AFX runs locally
-  and is never routed through proxies.
+  local machine the same pages load at once. The site is entitled to that choice, so AFX is never
+  routed through proxies. With no machine available to run it on a schedule, it is parked.
 
-## Running AFX locally
+## Running AFX, if a machine becomes available
 
-From the repository, with the snapshots worktree in place:
+The workflow skips AFX unless asked for by name. From a machine that can reach the site, with the
+snapshots worktree in place:
 
 ```bash
 git -C data/landing pull --rebase

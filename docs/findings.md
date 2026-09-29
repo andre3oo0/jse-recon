@@ -210,7 +210,7 @@ these were real trades, not another glitch.
 `python -m src.answers` now costs every late session this way, using the day before's prices from
 the later snapshot.
 
-## 2026-09-29: second and third sources
+## 2026-09-29: a second source, and a third that could not run
 
 ### 12. Two vendors agree on the close and disagree on the volume
 
@@ -237,7 +237,7 @@ would not differ on volume.
   21743 ZAc on 2026-09-28). Stamping that into the landed files would have recorded an assumption
   as vendor fact, so the assumption lives in configuration and staged rows say it was assumed.
 - **AFX refuses cloud servers.** From GitHub Actions every connection timed out; from a desktop it
-  answers at once. It runs locally instead. Discovering this in a two-security test, rather than in
+  answers at once. With no machine to run it on a schedule, it is parked. Discovering this in a two-security test, rather than in
   the scheduled job, mattered: a 22-security run would have hit the job's time limit and cancelled
   the commit of that day's Yahoo and EODHD snapshots. The AFX step now has its own time limit, and
   gives up after three consecutive failures.

@@ -5,7 +5,7 @@ import sqlite3
 import sys
 from dataclasses import dataclass
 
-from src import config, db, staging
+from src import config, db, lifecycle, staging
 
 BREAKS = ("VAL", "ONE_A", "ONE_B", "DUP", "UNIT", "CAL", "STALE")
 
@@ -93,14 +93,6 @@ def requested(conn: sqlite3.Connection, side: Side) -> set[str]:
     )}
 
 
-def restatement_sides(conn: sqlite3.Connection, source: str) -> tuple[Side, Side] | None:
-    snaps = [r[0] for r in conn.execute(
-        "SELECT snapshot_date FROM ingest_run WHERE source = ? ORDER BY snapshot_date DESC LIMIT 2",
-        (source,),
-    )]
-    return (Side(source, snaps[1]), Side(source, snaps[0])) if len(snaps) == 2 else None
-
-
 def report(conn: sqlite3.Connection, run_id: str) -> None:
     name, a_src, a_snap, b_src, b_snap, lo, hi, floor, pct = conn.execute(
         "SELECT recon_name, source_a, snapshot_a, source_b, snapshot_b, window_start, window_end, "
@@ -170,30 +162,59 @@ def main(argv=None) -> int:
         report(conn, run(conn, args.name, args.a, args.b, args.tolerance or args.name))
         return 0
 
-    settings = config.sources()
-    landed = {r[0] for r in conn.execute("SELECT DISTINCT source FROM ingest_run")}
-    # Rotated sources hold different securities in consecutive snapshots, so restatement needs a full-universe source
-    for source in sorted(s for s in landed if not settings.get(s, {}).get("daily_batch")):
-        sides = restatement_sides(conn, source)
-        if sides is None:
-            print(f"{source}: one snapshot so far; restatement recon starts with the second")
-            continue
-        report(conn, run(conn, f"{source}_restatement", *sides, tolerance_key=f"{source}_restatement"))
-        print()
+    replay(conn)
+    lifecycle.build(conn)
 
-    for source_a, source_b in settings.get("recon_pairs", []):
-        if not {source_a, source_b} <= landed:
-            print(f"{source_a}_vs_{source_b}: waiting for a snapshot from {', '.join(sorted({source_a, source_b} - landed))}")
-            continue
-        a, b = Side(source_a, latest(conn, source_a)), Side(source_b, latest(conn, source_b))
-        name = f"{source_a}_vs_{source_b}"
-        report(conn, run(conn, name, a, b, tolerance_key=name))
+    latest = conn.execute(
+        """
+        SELECT recon_run_id FROM recon_run r
+        WHERE snapshot_b = (SELECT MAX(snapshot_b) FROM recon_run WHERE recon_name = r.recon_name)
+        ORDER BY recon_name
+        """
+    ).fetchall()
+    for (run_id,) in latest:
+        report(conn, run_id)
         print()
+    for name in waiting(conn):
+        print(name)
+    lifecycle.report(conn)
     return 0
 
 
-def latest(conn: sqlite3.Connection, source: str) -> str:
-    return conn.execute("SELECT MAX(snapshot_date) FROM ingest_run WHERE source = ?", (source,)).fetchone()[0]
+def snapshot_dates(conn: sqlite3.Connection) -> dict[str, list[str]]:
+    dates: dict[str, list[str]] = {}
+    for source, snap in conn.execute("SELECT source, snapshot_date FROM ingest_run ORDER BY snapshot_date"):
+        dates.setdefault(source, []).append(snap)
+    return dates
+
+
+def replay(conn: sqlite3.Connection) -> list[str]:
+    # Every stored snapshot is reconciled again, so the break register is derived from history rather than kept
+    settings = config.sources()
+    rotated = {name for name, s in settings.items() if isinstance(s, dict) and s.get("daily_batch")}
+    dates = snapshot_dates(conn)
+    run_ids = []
+    # A rotated source holds different securities each day, so only full-universe sources get restatement recons
+    for source in sorted(set(dates) - rotated):
+        for prev, cur in zip(dates[source], dates[source][1:]):
+            run_ids.append(run(conn, f"{source}_restatement", Side(source, prev), Side(source, cur),
+                               f"{source}_restatement"))
+    for source_a, source_b in settings.get("recon_pairs", []):
+        name = f"{source_a}_vs_{source_b}"
+        for day in sorted(set(dates.get(source_a, [])) & set(dates.get(source_b, []))):
+            run_ids.append(run(conn, name, Side(source_a, day), Side(source_b, day), name))
+    return run_ids
+
+
+def waiting(conn: sqlite3.Connection) -> list[str]:
+    settings, dates, lines = config.sources(), snapshot_dates(conn), []
+    for source in sorted(set(dates) - {n for n, s in settings.items() if isinstance(s, dict) and s.get("daily_batch")}):
+        if len(dates[source]) < 2:
+            lines.append(f"{source}: one snapshot so far; restatement recon starts with the second")
+    for source_a, source_b in settings.get("recon_pairs", []):
+        if not set(dates.get(source_a, [])) & set(dates.get(source_b, [])):
+            lines.append(f"{source_a}_vs_{source_b}: waiting for both sources on the same snapshot date")
+    return lines
 
 
 if __name__ == "__main__":

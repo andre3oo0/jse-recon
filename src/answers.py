@@ -3,7 +3,7 @@
 import sqlite3
 import sys
 
-from src import config, db
+from src import config, db, lifecycle
 
 MATERIALITY_BP = 50.0  # ASISA NAV Standard s10.3.3: suggested maximum tolerance for a pricing error, 0.5% of NAV
 
@@ -171,7 +171,30 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
         out.append(f"   None frozen for {stale_days}+ sessions.")
     out.append("7. Do independent sources agree?")
     out.extend(cross_source(conn) or ["   Waiting for the first snapshots from the other sources."])
+
+    out.append("8. When sources disagree, does it get fixed, and how fast?")
+    out.extend(resolution(conn) or ["   No disagreements between sources recorded yet."])
     return out
+
+
+def resolution(conn: sqlite3.Connection) -> list[str]:
+    lines = []
+    names = [r[0] for r in conn.execute("SELECT DISTINCT recon_name FROM break_episode ORDER BY recon_name")]
+    for name in names:
+        s = lifecycle.summary(conn, name)
+        speed = (f" Those that cleared took {s['mean_days_to_clear']:.1f} trading days on average."
+                 if s["mean_days_to_clear"] is not None else "")
+        lines.append(f"   {name}: {s['episodes']} disagreements tracked. {s['timing']} cleared within "
+                     f"{config.tolerance_rules()['dq']['timing_clear_days']} trading days (timing differences), "
+                     f"{s['cleared']} took longer, and {s['open']} are still open.{speed}")
+        oldest = conn.execute(
+            "SELECT key_id, price_date, age_days FROM break_episode WHERE recon_name = ? AND state = 'OPEN' "
+            "ORDER BY age_days DESC LIMIT 1",
+            (name,),
+        ).fetchone()
+        if oldest:
+            lines.append(f"   Oldest open: {oldest[0]} on {oldest[1]}, unresolved for {oldest[2]} trading days.")
+    return lines
 
 
 def cross_source(conn: sqlite3.Connection) -> list[str]:
@@ -181,7 +204,7 @@ def cross_source(conn: sqlite3.Connection) -> list[str]:
         SELECT recon_run_id, recon_name, source_a, source_b, snapshot_b
         FROM recon_run r
         WHERE recon_name LIKE '%\\_vs\\_%' ESCAPE '\\'
-          AND run_at = (SELECT MAX(run_at) FROM recon_run WHERE recon_name = r.recon_name)
+          AND snapshot_b = (SELECT MAX(snapshot_b) FROM recon_run WHERE recon_name = r.recon_name)
         ORDER BY recon_name
         """
     ).fetchall()

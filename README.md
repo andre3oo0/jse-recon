@@ -22,8 +22,10 @@ Finance) turned up real problems in five years of prices:
   Vodacom and Sanlam, at one hundredth of their real price for a single day. A fund valued from
   that data would have reported itself **6.5% smaller** than it was: a R65,000 error on a
   R1 million fund. It happened again on 25 April 2025, to Standard Bank and two others.
-- **A missing trading day.** Yahoo has no prices at all for Monday 28 September 2026, a normal
-  trading day with no public holiday and no reported market outage.
+- **A trading day published late.** Yahoo's prices for Monday 28 September 2026 did not appear
+  until more than 17 hours after the market closed. A fund valued that evening from this source
+  would have had no closing prices at all. The gap was caught because the tool checks against its
+  own JSE calendar rather than trusting the dates the source provides.
 - **Shares that changed identity.** Five of the 111 shares tracked had been renamed or delisted.
   Each case was confirmed from official JSE notices, not assumed.
 

@@ -134,12 +134,28 @@ Over five years:
   volume (the 82 zero-volume bars from finding 4 all fall on trading days). A missing bar for one
   stock will therefore stand out when it happens.
 
-### 8. 28 September 2026 still has no explanation
+### 8. 28 September 2026: the market traded, Yahoo published late
 
-No special holiday was declared for that date. The next declared closure is 4 November 2026, for
-the local government elections, and it is already in the calendar. No JSE outage has been reported
-for the 28th either. The likeliest explanation is a Yahoo gap, but that is unconfirmed until a
-second source is available.
+No special holiday was declared for that date (the next declared closure is 4 November 2026, and
+it is already in the calendar), and no JSE outage was reported. The calendar said it was a normal
+trading day. It was: the bars have since appeared, with real volume (2.76 million Sasol shares).
 
-The next snapshot will show whether Yahoo fills the day in late. If it does, that is a restatement
-of history, which is exactly what the restatement recon is designed to detect.
+| Fetch (29 September, SAST) | Bars for 28 September |
+|---|---|
+| 10:12, local backfill | Missing for all 106 symbols |
+| 10:33, first GitHub Actions dry run | Missing |
+| 11:43, second dry run | Present for all 107 symbols |
+
+Yahoo published a whole JSE session more than 17 hours after the close. A fund valued on the
+evening of the 28th from this source would have had no closing prices for the day.
+
+**Consequences.**
+- An independent calendar is what made this visible. A calendar derived from Yahoo's dates would
+  have treated the 28th as a holiday, and the late prices would have looked like new history
+  rather than a gap being filled.
+- A snapshot taken on the evening of a late day is flagged with a whole-market gap, and the next
+  snapshot carries the missing session. The committed snapshot for 29 September (taken at 10:12)
+  lacks the 28th, so the next one will show it arriving: the first real restatement for the
+  restatement recon to find.
+- One late session does not show that Yahoo is routinely late. The daily data quality report
+  will show whether it recurs.

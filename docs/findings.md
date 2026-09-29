@@ -209,3 +209,37 @@ these were real trades, not another glitch.
 
 `python -m src.answers` now costs every late session this way, using the day before's prices from
 the later snapshot.
+
+## 2026-09-29: second and third sources
+
+### 12. Two vendors agree on the close and disagree on the volume
+
+A first look at AFX against Yahoo, before any snapshot of it was landed:
+
+| Security | Date | Close, AFX / Yahoo | Volume, AFX | Volume, Yahoo |
+|---|---|---|---|---|
+| Sasol | 2026-09-28 | R230.24 / 23024c | 2,764,940 | 2,764,940 |
+| Sasol | 2026-09-25 | R231.00 / 23100c | 1,855,854 | 1,865,854 |
+| Sasol | 2026-09-23 | R231.49 / 23149c | 3,699,900 | 4,132,400 |
+| Standard Bank | 2026-09-25 | R300.72 / 30072c | 1,645,772 | 1,667,006 |
+
+Closes match to the cent in every case; volumes match on some days and not others, sometimes by a
+round 10,000 shares. The likeliest explanation is that one vendor includes trades reported off the
+order book and the other does not. Volume is therefore stored in every recon result but is not a
+break: the daily answers report how often it differs.
+
+The disagreement is also useful evidence of independence. Two feeds that were copies of each other
+would not differ on volume.
+
+### 13. Each source needed a different fix before it could be trusted
+
+- **EODHD reports no unit.** Its prices turned out to be in cents (ABG.JSE 21743.0 against Yahoo's
+  21743 ZAc on 2026-09-28). Stamping that into the landed files would have recorded an assumption
+  as vendor fact, so the assumption lives in configuration and staged rows say it was assumed.
+- **AFX refuses cloud servers.** From GitHub Actions every connection timed out; from a desktop it
+  answers at once. It runs locally instead. Discovering this in a two-security test, rather than in
+  the scheduled job, mattered: a 22-security run would have hit the job's time limit and cancelled
+  the commit of that day's Yahoo and EODHD snapshots. The AFX step now has its own time limit, and
+  gives up after three consecutive failures.
+
+Evaluation of all nine sources considered: [sources.md](sources.md).

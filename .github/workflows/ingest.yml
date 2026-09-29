@@ -79,8 +79,8 @@ jobs:
           BATCH: ${{ inputs.batch }}
         run: python -m src.ingest --source eodhd --min-coverage 0.8 $REFETCH ${BATCH:+--batch "$BATCH"} 2>&1 | tee -a ingest.log
 
-      - name: AFX snapshot  # about 22 minutes: one page a minute, as the site's robots.txt asks
-        if: ${{ !cancelled() && (inputs.sources == '' || inputs.sources == null || contains(inputs.sources, 'afx')) }}
+      - name: AFX snapshot  # on request only: the site drops connections from cloud runners, so it runs locally
+        if: ${{ !cancelled() && contains(inputs.sources, 'afx') }}
         timeout-minutes: 35  # a hung site fails this step, not the job, so the other snapshots still commit
         shell: bash
         env:

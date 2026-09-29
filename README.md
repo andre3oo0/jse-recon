@@ -54,7 +54,8 @@ sources and reviewing each price against the previous one. Those are the two che
   enough to look plausible.
 - Checking a single source against itself caught the 100x errors without a second vendor. Errors
   of a few percent look like normal price moves, and only a second, independent source can catch
-  those. That comparison is the next stage of the project.
+  those. So after evaluating nine alternatives, I added a commercial data vendor (EODHD) and a
+  second public source (AFX), and every Yahoo price is now reconciled against them as well.
 - A missing price is more dangerous than a wrong one, because the fallback hides it. Nothing looks
   wrong with a fund valued at Friday's prices; the only way to know is to check every expected day
   against an independent calendar.
@@ -67,8 +68,8 @@ sources and reviewing each price against the previous one. Those are the two che
    after a rename, and checked against the JSE trading calendar.
 3. **Check.** Prices 100x off their neighbours, missing days, prices on days the market was
    closed, and frozen prices are flagged for review. Nothing is corrected silently.
-4. **Reconcile.** Each new snapshot is compared with the previous one, and every difference is
-   classified, explained and kept as a record. The same engine will compare two different vendors.
+4. **Reconcile.** Each new snapshot is compared with the previous one, and with the same prices
+   from other vendors. Every difference is classified, explained and kept as a record.
 
 `python -m src.answers` prints the current answer to each of these questions from the stored data,
 and the daily job posts the answers in its run summary.
@@ -90,7 +91,7 @@ and the daily job posts the answers in its run summary.
 - [x] Company reference data, including renames and delistings
 - [x] JSE trading calendar and data quality checks
 - [x] Reconciliation engine, running daily on consecutive snapshots
-- [ ] A second, independent price source
+- [x] Two further independent price sources, chosen from nine evaluated
 - [ ] Tracking each difference from first appearance until it is resolved
 - [ ] Excel report of breaks for an operations team
 - [ ] Holdings reconciliation against a brokerage-style export
@@ -112,5 +113,6 @@ This builds a local database from every stored snapshot and prints the answers. 
 ## More detail
 
 - [docs/findings.md](docs/findings.md) is a dated log of each finding, with the evidence
+- [docs/sources.md](docs/sources.md) compares the nine price sources considered, and why three were chosen
 - [docs/plan.md](docs/plan.md) covers the design and the reasoning behind each decision
 - [docs/easyequities_export.md](docs/easyequities_export.md) covers the brokerage export format

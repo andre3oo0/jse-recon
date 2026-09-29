@@ -62,7 +62,7 @@ percentage, set per source pair and per field in
 | 5 | Seeded break suite and completeness assertions | Done: one planted defect per break type |
 | 6 | Excel break report and recon summary | |
 | 7 | Write-up: noise reduction and NAV-bp cost | |
-| 8 | Second source or restatement recon; holdings recon (synthetic EasyEquities export) | |
+| 8 | Second and third sources (EODHD daily, AFX locally); holdings recon (synthetic EasyEquities export) | Sources done; holdings to do |
 
 If time runs short, cut phase 8 before phase 5.
 
@@ -93,4 +93,7 @@ If time runs short, cut phase 8 before phase 5.
 | Seeded tests use prices that move | Five identical closes is a stale price, so a flat fixture made every planted break look `STALE`. |
 | Costs are measured against ASISA's 0.5% tolerance | s10.3.3 of the ASISA NAV standard, the South African reference for when a pricing error is material. |
 | Output is organised as answers to questions | The project exists to answer whether a feed can be trusted to value a fund; `src.answers` states each answer with its evidence. |
+| Rotated sources take the least recently tried securities | EODHD's 20 free calls and AFX's one page a minute still cover all 107 securities within a week; a failed day is picked up the next day. |
+| Units a vendor does not report are assumed in staging | Landing records what the vendor said, including silence. The assumption sits in `sources.yaml` with its evidence, and staged rows are flagged `unit_assumed`. |
+| AFX runs locally, never through proxies | Its servers drop connections from cloud runners, which is the site's choice to make. |
 | Warehouse schema is versioned | A warehouse built by older code is refused with a prompt to rebuild, rather than failing halfway through a load. |

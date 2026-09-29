@@ -74,9 +74,14 @@ sources and reviewing each price against the previous one. Those are the two che
    comparison matches, so the tool can say what is still open, how long it has been open, and
    which differences fixed themselves within two trading days. An analyst can attach a note and a
    resolution code to any break, kept in version control alongside the code.
+6. **Report.** Every run produces an Excel break report for an operations team: open breaks by
+   age, what is new, what cleared, restatements and data quality, with every definition and
+   assumption written into the workbook. Before it is published, the job recalculates it and
+   checks each headline figure against the database, so a wrong total fails the run.
 
 `python -m src.answers` prints the current answer to each of these questions from the stored data,
-and the daily job posts the answers in its run summary.
+and the daily job posts the answers in its run summary. The Excel report is attached to each run
+for 30 days.
 
 ## Skills shown
 
@@ -97,7 +102,7 @@ and the daily job posts the answers in its run summary.
 - [x] Reconciliation engine, running daily on consecutive snapshots
 - [x] An independent commercial price source, chosen from nine evaluated
 - [x] Tracking each difference from first appearance until it is resolved
-- [ ] Excel report of breaks for an operations team
+- [x] Excel report of breaks for an operations team, checked before it is published
 - [ ] Holdings reconciliation against a brokerage-style export
 
 ## Running it
@@ -109,9 +114,11 @@ pip install -r requirements.txt
 git worktree add data/landing snapshots
 python -m src.rebuild
 python -m src.answers
+python -m src.report
 ```
 
-This builds a local database from every stored snapshot and prints the answers. The tests run with
+This builds a local database from every stored snapshot, prints the answers, and writes the Excel
+report to `reports/`. The tests run with
 `python -m unittest discover -s tests -t .`.
 
 ## More detail

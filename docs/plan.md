@@ -60,7 +60,7 @@ percentage, set per source pair and per field in
 | 3 | Recon engine: full outer join, tolerances, scope, classification; answers report | Done; restatement recon runs daily |
 | 4 | Break register: episodes, clearing, ageing, TIMING, analyst notes | Done; fills as daily comparisons accumulate |
 | 5 | Seeded break suite and completeness assertions | Done: one planted defect per break type |
-| 6 | Excel break report and recon summary | |
+| 6 | Excel break report: summary, open, new, cleared, restatements, data quality, answers, definitions | Done; published daily as a run artifact |
 | 7 | Write-up: noise reduction and NAV-bp cost | |
 | 8 | Second source (EODHD daily; AFX built but parked); holdings recon (synthetic EasyEquities export) | Source done; holdings to do |
 
@@ -102,4 +102,8 @@ If time runs short, cut phase 8 before phase 5.
 | Restatement breaks are events, not episodes | A restatement is a change between two snapshots; by the next day both sides agree on the new value, so it would always look like it fixed itself. |
 | TIMING means cleared within 2 trading days | Usually one vendor publishing later than the other; set by `timing_clear_days` in `tolerance_rules.yaml`. |
 | Analyst notes live in `config/break_notes.yaml` | The one part of the register that cannot be derived. In version control it has an author, a date and a review trail, and a bad resolution code fails the build. |
+| Summary figures are formulas over the detail tabs | An analyst who filters or edits a tab sees the summary follow. Bucket labels read "2-5 days" because Excel reads a bare "2-5" in a criterion as a date. |
+| The report is recalculated and cross-checked before publishing | openpyxl writes formulas without results, so CI recalculates in LibreOffice, fails on any formula error, then compares every Summary figure with the same count taken from the database. A formula that evaluates cleanly but counts the wrong column still fails. |
+| A test ties each Summary formula to a column header | The cheap local guard for the same failure: if a column moves, the test names the formula that now points at the wrong one. |
+| Reports are run artifacts, not commits | They are derived from snapshots and regenerated daily; 30 days of history is enough to compare with yesterday. |
 | Warehouse schema is versioned | A warehouse built by older code is refused with a prompt to rebuild, rather than failing halfway through a load. |

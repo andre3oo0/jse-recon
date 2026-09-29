@@ -39,3 +39,4 @@ def apply_schema(conn: sqlite3.Connection) -> None:
             "The warehouse is derived, so rebuild it: python -m src.rebuild"
         )
     conn.executescript(SCHEMA.read_text(encoding="utf-8"))
+    conn.executescript((SQL_DIR / "02_dq_views.sql").read_text(encoding="utf-8"))  # views are schema too

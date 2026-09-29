@@ -119,6 +119,26 @@ jobs:
         shell: bash
         run: python -m src.answers 2>&1 | tee answers.log
 
+      - name: Break report
+        if: ${{ !cancelled() }}
+        run: python -m src.report
+
+      - name: Check the report  # LibreOffice recalculates it; a formula error or a count that disagrees fails the job
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libreoffice-calc > /dev/null
+          python -m src.report_check --against-warehouse reports/*.xlsx 2>&1 | tee report_check.log
+
+      - name: Upload the report  # the recalculated copy, so its figures show in any viewer
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: break-report
+          path: reports/*.xlsx
+          retention-days: 30
+
       - name: Summary
         if: always()
         shell: bash
@@ -135,6 +155,11 @@ jobs:
             echo "### Data quality"
             echo '```'
             cat dq.log 2>/dev/null || echo "Data quality step did not run."
+            echo '```'
+            echo "### Break report"
+            echo "Download the Excel report from this run's artifacts (break-report)."
+            echo '```'
+            cat report_check.log 2>/dev/null || echo "Report check did not run."
             echo '```'
             echo "### Reconciliation"
             echo '```'

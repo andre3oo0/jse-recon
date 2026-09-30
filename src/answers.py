@@ -311,6 +311,15 @@ def resolution(conn: sqlite3.Connection) -> list[str]:
         lines.append(f"   {name}: {s['episodes']} disagreements tracked. {s['timing']} cleared within "
                      f"{config.tolerance_rules()['dq']['timing_clear_days']} trading days (timing differences), "
                      f"{s['cleared']} took longer, and {s['open']} are still open.{speed}")
+        resolved = conn.execute(
+            "SELECT COALESCE(n.resolution, 'no resolution yet'), COUNT(*) FROM break_episode e "
+            "LEFT JOIN break_note n USING (recon_name, key_id, price_date) "
+            "WHERE e.recon_name = ? AND e.state = 'OPEN' GROUP BY 1 ORDER BY 2 DESC",
+            (name,),
+        ).fetchall()
+        if resolved:
+            lines.append("   Analyst resolutions on the open breaks: " + ", ".join(f"{r} {n}" for r, n in resolved)
+                         + " (config/break_notes.yaml).")
         found_first = conn.execute(
             "SELECT COUNT(*) FROM break_episode WHERE recon_name = ? AND state = 'OPEN' AND found_on_first_comparison",
             (name,),

@@ -1,2 +1,317 @@
 # Analyst notes on breaks, matched on recon, security and price date. Resolution codes are in sql/00_schema.sql.
-notes: []
+notes:
+  - recon: yahoo_vs_eodhd
+    key: ADH
+    price_date: 2026-08-27
+    resolution: VENDOR_ERROR_B
+    note: EODHD repeated the 26 August close; Yahoo's close differs and the other ten shares match that day (finding 16)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: AFE
+    price_date: 2026-08-27
+    resolution: VENDOR_ERROR_B
+    note: EODHD repeated the 26 August close; Yahoo's close differs and the other ten shares match that day (finding 16)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: AGL
+    price_date: 2026-08-27
+    resolution: VENDOR_ERROR_B
+    note: EODHD repeated the 26 August close; Yahoo's close differs and the other ten shares match that day (finding 16)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: ARL
+    price_date: 2026-08-27
+    resolution: VENDOR_ERROR_B
+    note: EODHD repeated the 26 August close; Yahoo's close differs and the other ten shares match that day (finding 16)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: ATT
+    price_date: 2026-08-27
+    resolution: VENDOR_ERROR_B
+    note: EODHD repeated the 26 August close; Yahoo's close differs and the other ten shares match that day (finding 16)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: AVI
+    price_date: 2026-08-27
+    resolution: VENDOR_ERROR_B
+    note: EODHD repeated the 26 August close; Yahoo's close differs and the other ten shares match that day (finding 16)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-08-27
+    resolution: VENDOR_ERROR_B
+    note: EODHD repeated the 26 August close; Yahoo's close differs and the other ten shares match that day (finding 16)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: CLH
+    price_date: 2026-08-27
+    resolution: VENDOR_ERROR_B
+    note: EODHD repeated the 26 August close; Yahoo's close differs and the other ten shares match that day (finding 16)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-01
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-02
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-03
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-04
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-07
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-08
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-09
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-10
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-11
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-14
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-15
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-16
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-17
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-18
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-21
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-22
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-23
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-24
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-25
+    resolution: VENDOR_ERROR_B
+    note: From 1 September EODHD's BLU.JSE reports 4 to 5 cents on volumes unrelated to the JSE share's, and trades on Heritage Day; another instrument (finding 22)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: ABG
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: ADH
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: AFE
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: AGL
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: ANG
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: APN
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: ARI
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: ARL
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: ATT
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: AVI
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BHG
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BID
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BLU
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BTI
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: BVT
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: CFR
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: CLH
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30
+  - recon: yahoo_vs_eodhd
+    key: CLS
+    price_date: 2026-09-28
+    resolution: TIMING
+    note: Yahoo published 28 September late; its 29 September snapshot was taken before (finding 8)
+    author: TN
+    noted_on: 2026-09-30

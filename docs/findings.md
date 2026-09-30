@@ -304,7 +304,7 @@ incident, not a missing day.
   direct check (a price equal to the other source's previous close, but not its current one) would
   classify it at once. That is the next check to add.
 
-### 17. Blue Label Telecoms parts company from EODHD on 1 September (not yet investigated)
+### 17. Blue Label Telecoms parts company from EODHD on 1 September (investigated: finding 22)
 
 The two sources agree on all 230 BLU prices up to 31 August (R8.50 that day). From 1 September EODHD
 reports R0.0525 (1 to 7 September), R0.0475 (8 September) and R0.0425 (9 to 29 September), including a
@@ -397,3 +397,36 @@ on the fund's valuation point.
   already in the first comparison of their share, a year of history compared at once, so "0 trading
   days since first seen" said nothing. The oldest open break is now reported as ADH on 27 August,
   22 trading days after that price date, and breaks found on a first comparison are labelled.
+
+### 22. From 1 September, EODHD's BLU is not the JSE share
+
+Blue Label Telecoms has traded as Blu Label Unlimited since 3 September 2025, with its JSE code and ISIN
+unchanged, so the rename does not explain a break a year later. The evidence points to EODHD reporting a
+different instrument under `BLU.JSE`:
+
+- **Volume.** Up to 31 August the two sources give identical volumes, day by day (for example 14,828,909
+  on 31 August). From 1 September EODHD's volumes bear no relation to Yahoo's: 233,759 against 1,946,656
+  on the 1st, 532 against 1,711,019 on the 16th. Yahoo's volumes carry on at the share's usual level.
+- **Price.** EODHD moves between 4.25 and 5.25 cents, a penny instrument, while Yahoo stays between
+  R7.52 and R8.82.
+- **A trading day the JSE did not have.** EODHD's BLU has a bar with 3,500 shares traded on Heritage Day
+  (24 September), when the JSE was closed. None of the other 17 shares in the batch has one.
+- **No corporate action found.** Public sources show the 2025 rename and a Cell C Holdings pre-listing
+  statement (13 November 2025), neither near 1 September 2026. The JSE's SENS site and the company's own
+  announcements page could not be reached (bot detection, and an invalid certificate), so September 2026
+  announcements are **not fully checked**.
+
+All 19 BLU breaks from 1 September (18 `SCALE`, one `CAL`) are recorded as `VENDOR_ERROR_B` in
+`config/break_notes.yaml`, along with the eight 27 August breaks from finding 16. The 18 `ONE_B` breaks
+on 28 September are recorded as `TIMING`: Yahoo's snapshot of the 29th was taken before it published
+that day (finding 8), so they should clear at the next comparison. Next step outside the data: report
+the mapping to EODHD.
+
+### 23. Fortress B's 28 frozen sessions carry no volume (not resolved)
+
+Yahoo holds Fortress B (FFB) at R9.54 from 19 September to 26 October 2022, and every one of those 27
+sessions after the 19th has zero volume; trading resumes at R10.32 on 27 October with 3.4 million shares.
+A trading suspension would look like this, and so would a gap Yahoo filled with the previous close. No
+suspension notice was found in the public sources reachable, and no second source reaches back to 2022,
+so it stays open. The frozen-price check would be sharper if it required zero volume as well as an
+unchanged price, which is the next change to it.

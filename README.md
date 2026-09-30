@@ -54,8 +54,12 @@ price can mean a trading suspension or a dead feed, and each needs a person to c
 
 **6. The commercial vendor made mistakes too.** Checking Yahoo against EODHD, a commercial data
 vendor, on 18 shares: on 27 August 2026 EODHD repeated the previous day's closing price for 8 of them,
-while reporting the correct trading volume for that day. Each source fails in its own way, which is
-exactly why a fund checks one against another.
+while reporting the correct trading volume for that day. And from 1 September, EODHD's prices for Blu
+Label (BLU) were 99% below Yahoo's. I investigated: EODHD's volumes stopped matching the JSE share's that
+day, its price moved between 4 and 5 cents, and it even reported trading on Heritage Day, when the JSE
+was closed. EODHD had started reporting a different instrument under the code. Each break is recorded
+with its evidence and a resolution; each source fails in its own way, which is exactly why a fund checks
+one against another.
 
 **7. Big moves need a person to check them.** A day-on-day movement check flags any share that moved
 15% or more when the median share did not. Over five years it flagged 58 moves, about one a month,
@@ -160,7 +164,7 @@ it was taken.
 - [x] Tracking each difference from first appearance until it is resolved
 - [x] Excel report of breaks for an operations team, checked before it is published
 - [x] Holdings reconciliation against a brokerage-style export (synthetic, with planted breaks)
-- [ ] Investigating the first real breaks between Yahoo and EODHD, and recording each resolution
+- [x] Investigating the first real breaks between Yahoo and EODHD, and recording each resolution
 - [ ] Writing up the results once EODHD has checked every share, in early October 2026
 
 ## Running it

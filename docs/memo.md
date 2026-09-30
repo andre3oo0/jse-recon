@@ -32,8 +32,8 @@
 - An exception that could move NAV by more than 0.5% is resolved or escalated the same day, before the NAV
   is signed off. For a price 100x off, that is any holding above 0.51% of the fund.
 - Any other break is resolved or escalated within five trading days.
-- Every resolution is recorded with its evidence and author (`config/break_notes.yaml`), so the register
-  shows who decided what and why.
+- Every resolution is recorded with its evidence and date (`config/break_notes.yaml`), in version control,
+  so the register shows what was decided, when and why.
 
 ## Cost
 

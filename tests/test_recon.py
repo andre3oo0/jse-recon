@@ -9,7 +9,7 @@ from src import config, db, recon, staging
 
 RULES = {
     "price_recon": {"test": {"close": {"abs_floor_zar": 0.05, "rel_pct": 0.50}}},
-    "dq": {"unit_ratio_band": [80, 125], "stale_price_days": 5, "move_abs": 0.15, "move_excess": 0.10,
+    "dq": {"unit_ratio_band": [80, 125], "stale_price_days": 5, "move_abs": 0.15, "move_excess": 0.10, "scale_diff_pct": 50,
            "move_min_market": 10},
 }
 DAYS = ["2026-09-21", "2026-09-22", "2026-09-23", "2026-09-25", "2026-09-28"]  # 24th is Heritage Day
@@ -98,6 +98,18 @@ class ReconTest(unittest.TestCase):
         self.assertEqual(results[("GLT", "2026-09-23")],
                          ("MATCH", "Both sides carry the same unit anomaly"))
         self.assertEqual(len(results), 11 * len(DAYS) + 1 + 1)  # every key, plus the CAL and unmapped rows
+
+    def test_sources_far_apart_but_not_100x_are_a_scale_break(self):
+        self.security("SCL", b=BASE | {"2026-09-28": 60})  # about 166x apart: outside the unit band, 99% off
+        self.security("FTY", b=BASE | {"2026-09-28": 6000})  # 40% apart: a value break, not scale
+        self.security("HUN", b=BASE | {"2026-09-28": 100.1})  # about 100x: still a unit break
+        _, results = self.reconcile()
+        self.assertEqual({k: s for k, (s, _) in results.items() if s != "MATCH"}, {
+            ("SCL", "2026-09-28"): "SCALE",
+            ("FTY", "2026-09-28"): "VAL",
+            ("HUN", "2026-09-28"): "UNIT",
+        })
+        self.assertIn("(-99.40%): the sources disagree on scale, B/A = 0.0060", results[("SCL", "2026-09-28")][1])
 
     def test_explanations_state_the_rule(self):
         self.security("VAL", b=BASE | {"2026-09-28": 10110})

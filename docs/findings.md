@@ -384,3 +384,16 @@ containing 28 September is stored; the only Yahoo snapshot stored so far was tak
 missing. The answer now also states ASISA s4.2.2's condition (the last available price may be used
 "subject to verification that this is fair and reasonable") and that the delay's importance depends
 on the fund's valuation point.
+
+### 21. The break report now ranks by size and dates breaks from the price
+
+- **A 99% break no longer reads as a stale price.** BLU's EODHD prices are about 160x off Yahoo's,
+  outside the 100x unit band, so its 18 breaks were labelled `STALE` (9) and `VAL` (9). Any difference
+  over 50% is now `SCALE`, whatever the ratio: 18 `SCALE` breaks, all BLU.
+- **Open breaks are sorted by the size of the difference**, and the report gives each share's Top 40
+  weight and what the break would cost a Top 40 fund. BLU is outside the Top 40, so its cost there is
+  nil; the largest open break in a Top 40 share is AGL on 27 August (finding 16).
+- **Age is counted from the price date as well as from first sighting.** All 45 open breaks were
+  already in the first comparison of their share, a year of history compared at once, so "0 trading
+  days since first seen" said nothing. The oldest open break is now reported as ADH on 27 August,
+  22 trading days after that price date, and breaks found on a first comparison are labelled.

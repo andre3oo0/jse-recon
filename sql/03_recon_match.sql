@@ -83,6 +83,8 @@ classified AS (
             WHEN j.rows_a IS NULL THEN CASE WHEN j.is_trading_day = 0 THEN 'CAL' ELSE 'ONE_B' END
             WHEN j.close_a IS NULL OR j.close_b IS NULL OR j.unit_a <> j.unit_b THEN 'UNIT'
             WHEN j.ratio BETWEEN :unit_lo AND :unit_hi OR j.ratio BETWEEN 1.0 / :unit_hi AND 1.0 / :unit_lo THEN 'UNIT'
+            -- More than 50% apart is a scale disagreement whatever the ratio, so a 99% break never reads as stale
+            WHEN ABS(j.diff_pct) > :scale_pct THEN 'SCALE'
             WHEN ABS(j.diff_zar) > :abs_floor AND ABS(j.diff_pct) > :rel_pct THEN
                 CASE WHEN MAX(j.stale_a, j.stale_b) >= :stale_days THEN 'STALE' ELSE 'VAL' END
             ELSE 'MATCH'
@@ -114,6 +116,8 @@ SELECT
                 WHEN unit_a OR unit_b THEN printf('Unit anomaly flagged in staging; B/A = %.4f', ratio)
                 ELSE printf('B/A = %.4f, about 100x apart', ratio)
             END
+        WHEN 'SCALE' THEN printf('Differs by R%.2f (%.2f%%): the sources disagree on scale, B/A = %.4f',
+                                 diff_zar, diff_pct, ratio)
         WHEN 'STALE' THEN printf('Differs by R%.2f (%.2f%%); one side unchanged for %d sessions',
                                  diff_zar, diff_pct, MAX(stale_a, stale_b))
         WHEN 'VAL' THEN printf('Differs by R%.2f (%.2f%%), over both R%.2f and %.2f%%',

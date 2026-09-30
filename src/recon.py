@@ -75,6 +75,7 @@ def run(conn: sqlite3.Connection, name: str, a: Side, b: Side, tolerance_key: st
                 "abs_floor": tol["abs_floor_zar"], "rel_pct": tol["rel_pct"],
                 "unit_lo": band[0], "unit_hi": band[1],
                 "stale_days": rules["dq"]["stale_price_days"],
+                "scale_pct": rules["dq"]["scale_diff_pct"],
             },
         )
     return run_id

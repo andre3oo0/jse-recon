@@ -1,5 +1,5 @@
 -- Warehouse schema. Needs SQLite 3.39+ for FULL OUTER JOIN in the recon layer.
-PRAGMA user_version = 8;  -- bump on any change so src/db.py asks for a rebuild
+PRAGMA user_version = 9;  -- bump on any change so src/db.py asks for a rebuild
 PRAGMA foreign_keys = ON;
 
 -- One row per security, keyed on the current JSE alpha code; ISIN should replace it once populated.
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS recon_result (
     key_id        TEXT NOT NULL,  -- security_id, or UNMAPPED:<vendor symbol>
     price_date    TEXT NOT NULL,
     status        TEXT NOT NULL
-                  CHECK (status IN ('MATCH', 'VAL', 'ONE_A', 'ONE_B', 'DUP', 'UNIT', 'CAL', 'STALE')),
+                  CHECK (status IN ('MATCH', 'VAL', 'ONE_A', 'ONE_B', 'DUP', 'UNIT', 'CAL', 'STALE', 'SCALE')),
     close_a       REAL,
     close_b       REAL,
     diff_zar      REAL,
@@ -156,6 +156,9 @@ CREATE TABLE IF NOT EXISTS break_episode (
     latest_status    TEXT NOT NULL,
     latest_explanation TEXT,
     age_days         INTEGER NOT NULL,  -- trading days from first_seen to cleared_on, or to the latest comparison
+    price_age_days   INTEGER NOT NULL,  -- trading days from the price date itself to the same end
+    found_on_first_comparison INTEGER NOT NULL,  -- 1 when the break was in the first comparison this key ever had
+    latest_diff_pct  REAL,  -- B against A, percent, in the latest breaking comparison
     state            TEXT NOT NULL CHECK (state IN ('OPEN', 'TIMING', 'CLEARED')),
     PRIMARY KEY (recon_name, key_id, price_date, first_seen)
 );

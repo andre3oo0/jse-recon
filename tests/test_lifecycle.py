@@ -73,6 +73,15 @@ class LifecycleTest(unittest.TestCase):
              "age": 2, "state": "TIMING"},
         ])
 
+    def test_age_from_the_price_date_and_breaks_found_on_the_first_comparison(self):
+        self.observe(D1, {"OLD": "VAL", "NEW": "MATCH"})
+        self.observe(D2, {"OLD": "VAL", "NEW": "VAL"})
+        lifecycle.build(self.conn)
+        rows = dict((k, (a, p, f)) for k, a, p, f in self.conn.execute(
+            "SELECT key_id, age_days, price_age_days, found_on_first_comparison FROM break_episode"))
+        self.assertEqual(rows["OLD"], (1, 4, 1))  # found on its first comparison; priced 28 Sep, four sessions before D2
+        self.assertEqual(rows["NEW"], (0, 4, 0))  # matched first, so this break is new
+
     def test_a_day_without_a_comparison_neither_breaks_nor_clears(self):
         # ROT was not in EODHD's rotation on D2 to D4, so it stays one episode until the D5 match
         self.history()

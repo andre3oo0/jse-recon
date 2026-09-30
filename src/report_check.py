@@ -8,7 +8,7 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 
-from src import db, holdings, report
+from src import answers, db, holdings, report
 
 ERRORS = ("#VALUE!", "#DIV/0!", "#REF!", "#NAME?", "#NULL!", "#NUM!", "#N/A")
 MACRO = """<?xml version="1.0" encoding="UTF-8"?>
@@ -64,12 +64,15 @@ def expected_summary(conn) -> dict[str, int]:
     _, restated = report.restatements(conn)
     status = Counter(r[2] for r in restated)
     states = dict(conn.execute("SELECT state, COUNT(*) FROM break_episode GROUP BY state").fetchall())
+    scale = conn.execute("SELECT COUNT(*) FROM break_episode WHERE state = 'OPEN' AND latest_status = 'SCALE'").fetchone()[0]
     return {
         "Open breaks": states.get("OPEN", 0),
         "New in the latest comparison": len(report.new_breaks(conn)),
         "Cleared as timing differences": states.get("TIMING", 0),
         "Cleared after longer": states.get("CLEARED", 0),
-        "Prices rewritten": status["VAL"] + status["UNIT"] + status["STALE"],
+        "Open breaks over 50% (scale)": scale,
+        "Largest open cost in a Top 40 fund": largest_top40_cost(conn),
+        "Prices rewritten": status["VAL"] + status["UNIT"] + status["STALE"] + status["SCALE"],
         "Prices published late": status["ONE_B"],
         "Prices withdrawn": status["ONE_A"],
         "Unit anomalies": dq["Unit anomaly"],
@@ -79,6 +82,14 @@ def expected_summary(conn) -> dict[str, int]:
         "Prices on closed days": dq["Price on closed day"],
         **holdings_expected(conn),
     }
+
+
+def largest_top40_cost(conn) -> float:
+    # Weight times difference for each open break, from the warehouse and the published weights, not the workbook
+    costs = [abs(weight * diff / 100) for key, day, diff in conn.execute(
+        "SELECT key_id, price_date, latest_diff_pct FROM break_episode WHERE state = 'OPEN' AND latest_diff_pct IS NOT NULL")
+        for weight in [answers.weights_on(day)[1].get(key)] if weight]
+    return round(max(costs, default=0.0), 6)
 
 
 def holdings_expected(conn) -> dict:
@@ -98,13 +109,15 @@ def holdings_expected(conn) -> dict:
 def summary_mismatches(path: Path, expected: dict[str, int]) -> list[str]:
     ws = load_workbook(path, data_only=True)["Summary"]
     actual = {r[0]: r[1] for r in ws.iter_rows(min_col=1, max_col=2, values_only=True) if r[0]}
-    def agrees(got, want):
+    def agrees(label, got, want):
         if isinstance(want, float):
-            return isinstance(got, (int, float)) and abs(got - want) < 0.005
+            # Rands to the half cent; a fraction of NAV to a millionth, so a basis point of error still fails
+            tolerance = 1e-6 if "Top 40" in label else 0.005
+            return isinstance(got, (int, float)) and abs(got - want) < tolerance
         return got == want
 
     return [f"{label}: workbook says {actual.get(label)!r}, warehouse says {n}"
-            for label, n in expected.items() if not agrees(actual.get(label), n)]
+            for label, n in expected.items() if not agrees(label, actual.get(label), n)]
 
 
 def main(argv=None) -> int:

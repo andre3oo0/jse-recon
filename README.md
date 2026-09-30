@@ -108,8 +108,9 @@ export stands in for one here.)
 4. **Reconcile.** Each new snapshot is compared with the previous one, and with the same prices
    from other vendors. Every difference is classified, explained and kept as a record.
 5. **Track.** Each disagreement is followed from the day it first appears until a later
-   comparison matches, so the tool can say what is still open, how long it has been open, and
-   which differences fixed themselves within two trading days. An analyst can attach a note and a
+   comparison matches, so the tool can say what is still open, how long since the price date and
+   since it was found, which differences fixed themselves within two trading days, and which open
+   break would cost a Top 40 fund the most. An analyst can attach a note and a
    resolution code to any break, kept in version control alongside the code.
 6. **Report.** Every run produces an Excel break report for an operations team: open breaks by
    age, what is new, what cleared, restatements and data quality, with every definition and

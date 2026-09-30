@@ -50,7 +50,8 @@ def open_breaks(conn):
         """
         SELECT e.recon_name, e.key_id, m.name, m.sector, e.price_date, e.first_seen, e.last_seen, e.age_days,
                e.latest_status, x.close_a, x.close_b, x.diff_zar, x.diff_pct / 100.0, e.latest_explanation,
-               n.resolution, n.note
+               n.resolution, n.note, e.price_age_days,
+               CASE WHEN e.found_on_first_comparison THEN 'Yes' ELSE 'No' END
         FROM break_episode e
         LEFT JOIN security_master m ON m.security_id = e.key_id
         LEFT JOIN recon_run r ON r.recon_name = e.recon_name AND r.snapshot_b = e.last_seen
@@ -58,9 +59,14 @@ def open_breaks(conn):
             ON x.recon_run_id = r.recon_run_id AND x.key_id = e.key_id AND x.price_date = e.price_date
         LEFT JOIN break_note n ON n.recon_name = e.recon_name AND n.key_id = e.key_id AND n.price_date = e.price_date
         WHERE e.state = 'OPEN'
-        ORDER BY e.age_days DESC, e.recon_name, e.key_id, e.price_date
+        ORDER BY ABS(COALESCE(x.diff_pct, 1e9)) DESC, e.age_days DESC, e.recon_name, e.key_id, e.price_date
         """
     ).fetchall()
+
+
+def with_top40_weight(rows):
+    # Largest first; the weight is Satrix 40's latest published year-end weight on or before the price date
+    return [(*r, answers.weights_on(r[4])[1].get(r[1])) for r in rows]
 
 
 def new_breaks(conn):
@@ -192,9 +198,13 @@ def summary(ws, day, generated):
         ("Cleared as timing differences", '=COUNTIFS(Cleared!$J:$J,"TIMING")', "Cleared"),
         ("Cleared after longer", '=COUNTIFS(Cleared!$J:$J,"CLEARED")', "Cleared"),
         ("Mean trading days to clear", '=IFERROR(AVERAGE(Cleared!$I:$I),"-")', "Cleared"),
+        ("Open breaks over 50% (scale)", '=COUNTIFS(\'Open Breaks\'!$J:$J,"SCALE")', "Open Breaks"),
+        ("Largest open cost in a Top 40 fund", "=MAX(MAX('Open Breaks'!$U:$U),-MIN('Open Breaks'!$U:$U))",
+         "Open Breaks"),
         ("Restatements since the previous snapshot", None, None),
         ("Prices rewritten", '=COUNTIFS(Restatements!$C:$C,"VAL")+COUNTIFS(Restatements!$C:$C,"UNIT")'
-                             '+COUNTIFS(Restatements!$C:$C,"STALE")', "Restatements"),
+                             '+COUNTIFS(Restatements!$C:$C,"STALE")+COUNTIFS(Restatements!$C:$C,"SCALE")',
+         "Restatements"),
         ("Prices published late", '=COUNTIFS(Restatements!$C:$C,"ONE_B")', "Restatements"),
         ("Prices withdrawn", '=COUNTIFS(Restatements!$C:$C,"ONE_A")', "Restatements"),
         ("Data quality, latest full snapshot", None, None),
@@ -218,7 +228,8 @@ def summary(ws, day, generated):
             ws[f"A{r}"].font = Font(name=FONT, bold=True)
             continue
         ws[f"B{r}"] = formula
-        ws[f"B{r}"].number_format = DEC if "AVERAGE" in formula else ZAR if "(R)" in label else INT
+        ws[f"B{r}"].number_format = (DEC if "AVERAGE" in formula else ZAR if "(R)" in label
+                                     else PCT if "Top 40" in label else INT)
         ws[f"C{r}"] = f"{tab} tab"
     assert ws["A5"].value == "Open breaks" and ws["A6"].value.startswith("  open 0-1")  # B5 sums B6:B9
     ws.column_dimensions["A"].width = 44
@@ -279,7 +290,10 @@ def build(conn: sqlite3.Connection, path) -> None:
         ("Age (trading days)", 11, INT), ("Age bucket", 11, None), ("Status", 9, None),
         ("Close A (R)", 13, ZAR), ("Close B (R)", 13, ZAR), ("Difference (R)", 13, ZAR),
         ("Difference (%)", 12, PCT), ("Explanation", 60, None), ("Resolution", 16, None), ("Note", 40, None),
-    ], [(*r[:8], None, *r[8:]) for r in open_breaks(conn)], none, formulas={"I": AGE_BUCKET.format(c="H", r="{r}")})
+        ("Age from price date", 11, INT), ("Found on first comparison", 11, None), ("Top 40 weight", 10, PCT),
+        ("Cost in a Top 40 fund", 12, PCT),
+    ], [(*r[:8], None, *r[8:], None) for r in with_top40_weight(open_breaks(conn))], none,
+        formulas={"I": AGE_BUCKET.format(c="H", r="{r}"), "U": '=IF(T{r}="","",T{r}*N{r})'})
 
     table(wb.create_sheet("New Today"), [
         ("Recon", 16, None), ("Security", 10, None), ("Name", 26, None), ("Price date", 12, DATE),

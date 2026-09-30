@@ -203,7 +203,7 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
         compared, changed, late = conn.execute(
             """
             SELECT SUM(status NOT IN ('ONE_A', 'ONE_B', 'CAL')),
-                   SUM(status IN ('VAL', 'UNIT', 'STALE')),
+                   SUM(status IN ('VAL', 'UNIT', 'STALE', 'SCALE')),
                    SUM(status = 'ONE_B')
             FROM recon_result WHERE recon_run_id = ?
             """,
@@ -311,13 +311,31 @@ def resolution(conn: sqlite3.Connection) -> list[str]:
         lines.append(f"   {name}: {s['episodes']} disagreements tracked. {s['timing']} cleared within "
                      f"{config.tolerance_rules()['dq']['timing_clear_days']} trading days (timing differences), "
                      f"{s['cleared']} took longer, and {s['open']} are still open.{speed}")
+        found_first = conn.execute(
+            "SELECT COUNT(*) FROM break_episode WHERE recon_name = ? AND state = 'OPEN' AND found_on_first_comparison",
+            (name,),
+        ).fetchone()[0]
+        if found_first:
+            lines.append(f"   {found_first} of the open breaks were already there in the first comparison of that "
+                         f"share, so their age counts from the price date, not from when they were found.")
         oldest = conn.execute(
-            "SELECT key_id, price_date, age_days FROM break_episode WHERE recon_name = ? AND state = 'OPEN' "
-            "ORDER BY age_days DESC LIMIT 1",
+            "SELECT key_id, price_date, price_age_days FROM break_episode WHERE recon_name = ? AND state = 'OPEN' "
+            "ORDER BY price_age_days DESC LIMIT 1",
             (name,),
         ).fetchone()
         if oldest:
-            lines.append(f"   Oldest open: {oldest[0]} on {oldest[1]}, unresolved for {oldest[2]} trading days.")
+            lines.append(f"   Oldest open: {oldest[0]} on {oldest[1]}, {oldest[2]} trading days after that price date.")
+        largest = conn.execute(
+            "SELECT key_id, price_date, latest_diff_pct, latest_status FROM break_episode "
+            "WHERE recon_name = ? AND state = 'OPEN' ORDER BY ABS(latest_diff_pct) DESC LIMIT 1",
+            (name,),
+        ).fetchone()
+        if largest and largest[2] is not None:
+            weight = weights_on(largest[1])[1].get(largest[0])
+            cost = (f", which would cost a Top 40 fund {abs(weight * largest[2]) / 100:.2%} of NAV" if weight
+                    else ", a share outside the Top 40")
+            lines.append(f"   Largest open: {largest[0]} on {largest[1]}, {largest[2]:+.1f}% apart "
+                         f"({largest[3]}){cost}.")
     return lines
 
 

@@ -76,6 +76,8 @@ class ReportTest(unittest.TestCase):
         headers = {ws.title: {c.column_letter: c.value for c in ws[1]} for ws in wb.worksheets[1:]}
         expected = {
             ("Open Breaks", "I"): "Age bucket",
+            ("Open Breaks", "J"): "Status",
+            ("Open Breaks", "U"): "Cost in a Top 40 fund",
             ("New Today", "B"): "Security",
             ("Cleared", "I"): "Age (trading days)",
             ("Cleared", "J"): "State",

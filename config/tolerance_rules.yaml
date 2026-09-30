@@ -30,3 +30,4 @@ dq:
   move_abs: 0.15             # the share moved at least 15% from its previous close
   move_excess: 0.10          # and at least 10 percentage points more than the median share that day
   move_min_market: 10        # the median needs at least this many shares priced that day
+  scale_diff_pct: 50         # sources more than 50% apart disagree on scale, whatever the exact ratio

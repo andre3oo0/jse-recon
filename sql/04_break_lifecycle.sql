@@ -1,11 +1,13 @@
 -- Turn daily comparisons into episodes of disagreement; restatement recons are one-off events, so they are left out.
 INSERT INTO break_episode (
     recon_name, key_id, price_date, first_seen, last_seen, cleared_on, observations,
-    first_status, latest_status, latest_explanation, age_days, state
+    first_status, latest_status, latest_explanation, age_days, price_age_days, found_on_first_comparison,
+    latest_diff_pct, state
 )
 WITH obs AS (
-    SELECT r.recon_name, x.key_id, x.price_date, r.snapshot_b AS as_of, x.status, x.explanation,
-           x.status <> 'MATCH' AS is_break
+    SELECT r.recon_name, x.key_id, x.price_date, r.snapshot_b AS as_of, x.status, x.explanation, x.diff_pct,
+           x.status <> 'MATCH' AS is_break,
+           MIN(r.snapshot_b) OVER (PARTITION BY r.recon_name, x.key_id) AS key_first_compared
     FROM recon_result x
     JOIN recon_run r ON r.recon_run_id = x.recon_run_id
     WHERE r.recon_name NOT LIKE '%\_restatement' ESCAPE '\'
@@ -26,6 +28,7 @@ island AS (
         FIRST_VALUE(d.status) OVER w AS first_status,
         LAST_VALUE(d.status) OVER w AS latest_status,
         LAST_VALUE(d.explanation) OVER w AS latest_explanation,
+        LAST_VALUE(d.diff_pct) OVER w AS latest_diff_pct,
         LAST_VALUE(d.next_as_of) OVER w AS cleared_on  -- the comparison after the last break always matched
     FROM ordered d
     WHERE d.is_break
@@ -44,6 +47,8 @@ episodes AS (
         MAX(first_status) AS first_status,
         MAX(latest_status) AS latest_status,
         MAX(latest_explanation) AS latest_explanation,
+        MAX(latest_diff_pct) AS latest_diff_pct,
+        MIN(as_of) = MAX(key_first_compared) AS found_on_first_comparison,
         (SELECT MAX(snapshot_b) FROM recon_run r WHERE r.recon_name = island.recon_name) AS recon_latest
     FROM island
     GROUP BY recon_name, key_id, price_date, grp
@@ -54,12 +59,17 @@ aged AS (
         (SELECT COUNT(*) FROM trading_calendar c
          WHERE c.is_trading_day = 1
            AND c.cal_date > e.first_seen
-           AND c.cal_date <= COALESCE(e.cleared_on, e.recon_latest)) AS age_days
+           AND c.cal_date <= COALESCE(e.cleared_on, e.recon_latest)) AS age_days,
+        (SELECT COUNT(*) FROM trading_calendar c
+         WHERE c.is_trading_day = 1
+           AND c.cal_date > e.price_date
+           AND c.cal_date <= COALESCE(e.cleared_on, e.recon_latest)) AS price_age_days
     FROM episodes e
 )
 SELECT
     recon_name, key_id, price_date, first_seen, last_seen, cleared_on, observations,
-    first_status, latest_status, latest_explanation, age_days,
+    first_status, latest_status, latest_explanation, age_days, price_age_days, found_on_first_comparison,
+    latest_diff_pct,
     CASE
         WHEN cleared_on IS NULL THEN 'OPEN'
         WHEN age_days <= :timing_days THEN 'TIMING'

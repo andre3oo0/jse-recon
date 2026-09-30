@@ -110,8 +110,9 @@ out. The planted breaks and how they were made are in
 
 This is a test of the control, not a finding about any real statement: the sizes of the planted
 breaks set the numbers. It shows why a reconciliation must check every position: **netted, the
-planted breaks leave the statement out by 0.88%; gross, by 16.95%**, because a duplicated line hides
-most of a missing position. (A real fund reconciles against its custodian's statement; the retail
+planted breaks leave the statement out by 0.88%, yet the errors add up to 15.86% gross**, because a
+duplicated line hides most of a missing position. A settlement timing difference and one position whose
+value could not be read are reported apart, so the gross figure is a lower bound. (A real fund reconciles against its custodian's statement; the retail
 export stands in for one here.)
 
 ## How the tool found this

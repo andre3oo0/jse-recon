@@ -9,7 +9,8 @@ from src import config, db, recon, staging
 
 RULES = {
     "price_recon": {"test": {"close": {"abs_floor_zar": 0.05, "rel_pct": 0.50}}},
-    "dq": {"unit_ratio_band": [80, 125], "stale_price_days": 5, "move_abs": 0.15, "move_excess": 0.10, "scale_diff_pct": 50,
+    "dq": {"unit_ratio_band": [80, 125], "stale_price_days": 5, "move_abs": 0.15, "move_excess": 0.10, "scale_diff_pct": 50, "whole_market_share": 0.9,
+           "late_day_min_symbols": 10,
            "move_min_market": 10},
 }
 DAYS = ["2026-09-21", "2026-09-22", "2026-09-23", "2026-09-25", "2026-09-28"]  # 24th is Heritage Day

@@ -12,14 +12,8 @@ def latest_snapshot(conn: sqlite3.Connection, source: str) -> str:
     return conn.execute("SELECT MAX(snapshot_date) FROM ingest_run WHERE source = ?", (source,)).fetchone()[0]
 
 
-# Every stored price, each as the latest snapshot holding it has it; a 3-month daily snapshot must not hide older errors
-LATEST_PRICE = """
-    SELECT * FROM (
-        SELECT *, ROW_NUMBER() OVER (PARTITION BY security_id, price_date ORDER BY snapshot_date DESC) AS latest
-        FROM stg_price WHERE source = ?
-    )
-    WHERE latest = 1
-"""
+# Every stored price, each as the latest snapshot holding it has it (v_latest_price, sql/02_dq_views.sql)
+LATEST_PRICE = "SELECT * FROM v_latest_price WHERE source = ?"
 
 
 def stored_prices(conn: sqlite3.Connection, source: str) -> tuple[int, str, str]:
@@ -193,10 +187,10 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
         """
         SELECT COUNT(DISTINCT e.price_date),
                (SELECT group_concat(price_date, ', ') FROM v_session_gap g
-                WHERE g.source = ? AND g.snapshot_date = ? AND g.symbols_missing >= 0.9 * g.symbols_expected)
+                WHERE g.source = ? AND g.snapshot_date = ? AND g.symbols_missing >= ? * g.symbols_expected)
         FROM v_expected_bar e WHERE e.source = ? AND e.snapshot_date = ?
         """,
-        (*key, *key),
+        (*key, config.tolerance_rules()["dq"]["whole_market_share"], *key),
     ).fetchone()
     out.append("3. Is every trading day there?")
     if gaps:
@@ -227,9 +221,9 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
         late_days = [r[0] for r in conn.execute(
             """
             SELECT price_date FROM recon_result WHERE recon_run_id = ? AND status = 'ONE_B'
-            GROUP BY price_date HAVING COUNT(*) >= 10 ORDER BY price_date
+            GROUP BY price_date HAVING COUNT(*) >= ? ORDER BY price_date
             """,
-            (run_id,),
+            (run_id, config.tolerance_rules()["dq"]["late_day_min_symbols"]),
         )]
         hours = conn.execute(
             "SELECT (julianday(MAX(fetched_at)) - julianday(MIN(fetched_at))) * 24 FROM ingest_run "
@@ -265,22 +259,18 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
 
     stale_days = config.tolerance_rules()["dq"]["stale_price_days"]
     runs = conn.execute(
-        """
-        SELECT security_id, stale_days, price_date FROM (
-            SELECT security_id, price_date, stale_days,
-                   LEAD(stale_days) OVER (PARTITION BY vendor_symbol ORDER BY price_date) AS next_days
-            FROM stg_price WHERE source = ? AND snapshot_date = ?
-        )
-        WHERE stale_days >= ? AND COALESCE(next_days, 0) <> stale_days + 1
-        ORDER BY stale_days DESC
-        """,
-        (*key, stale_days),
+        "SELECT security_id, stale_days, end_date, volume_after_first_day FROM v_frozen_run "
+        "WHERE source = ? AND snapshot_date = ? ORDER BY stale_days DESC",
+        key,
     ).fetchall()
     out.append("6. Are any prices suspiciously frozen?")
     if runs:
-        sec, days, end = runs[0]
+        sec, days, end, _ = runs[0]
+        silent = sum(1 for r in runs if not r[3])
         out.append(f"   {len(runs)} times a price stayed identical for {stale_days}+ sessions. Longest: {sec}, "
-                   f"{days} sessions to {end}. Each needs checking against a trading suspension.")
+                   f"{days} sessions to {end}. {silent} of the {len(runs)} had no volume after the first day, the mark "
+                   f"of a suspension or a feed filling gaps; the others traded at an unchanged price, common for "
+                   f"thinly traded shares. Each needs checking against a trading suspension.")
     else:
         out.append(f"   None frozen for {stale_days}+ sessions.")
     out.append("7. Do independent sources agree?")
@@ -334,8 +324,12 @@ def statement(conn: sqlite3.Connection) -> list[str]:
     lines = [f"   {label} for {as_of}: {len(got) - sum(breaks.values())} of {len(got)} positions agree; breaks: "
              + ", ".join(f"{s} {n}" for s, n in sorted(breaks.items())) + "."]
     if book:
-        lines.append(f"   Net, the statement is out by R{net:+,.0f} ({net / book:+.2%}), which looks close. Gross it is "
-                     f"out by R{gross:,.0f} ({gross / book:.2%}): netting lets a duplicated line hide a missing one.")
+        unexplained, timing, unvalued = holdings.breakdown(conn, file_id)
+        lines.append(f"   Net, the statement is out by R{net:+,.0f} ({net / book:+.2%}), which looks close. The breaks "
+                     f"that are errors add up to R{unexplained:,.0f} ({unexplained / book:.2%}) gross: netting lets a "
+                     f"duplicated line hide a missing one.")
+        lines.append(f"   Kept apart: R{timing:,.0f} of timing differences, and {unvalued} position"
+                     f"{'' if unvalued == 1 else 's'} that could not be valued, so the gross figure is a lower bound.")
     if breaks.get("SETTLE"):
         n = breaks["SETTLE"]
         lines.append(f"   {n} {'break is a trade' if n == 1 else 'breaks are trades'} not yet settled (T+3), "

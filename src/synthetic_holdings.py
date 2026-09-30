@@ -36,14 +36,7 @@ def money(x: float, thousands: str = " ") -> str:
 
 def build(conn):
     closes = {(s, d): c for s, d, c in conn.execute(
-        """
-        SELECT security_id, price_date, close_zar FROM (
-            SELECT security_id, price_date, close_zar, unit_anomaly,
-                   ROW_NUMBER() OVER (PARTITION BY security_id, price_date ORDER BY snapshot_date DESC) AS latest
-            FROM stg_price WHERE source = 'yahoo'
-        )
-        WHERE latest = 1 AND unit_anomaly IS NULL
-        """
+        "SELECT security_id, price_date, close_zar FROM v_latest_price WHERE source = 'yahoo' AND unit_anomaly IS NULL"
     )}
     days = sorted({d for (_, d) in closes if "2024-01-02" <= d <= "2026-08-31"})
     names = dict(conn.execute("SELECT security_id, name FROM security_master"))

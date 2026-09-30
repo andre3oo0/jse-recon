@@ -1,13 +1,8 @@
 -- The price the fund should use for each security and trading day, the source it came from, and why.
 INSERT INTO approved_price (security_id, price_date, close_zar, source, status, reason)
 WITH latest AS (
-    SELECT source, security_id, price_date, close_zar, unit_anomaly
-    FROM (
-        SELECT *, ROW_NUMBER() OVER (PARTITION BY source, security_id, price_date ORDER BY snapshot_date DESC) AS n
-        FROM stg_price
-        WHERE security_id IS NOT NULL AND is_trading_day = 1 AND close_zar > 0 AND source IN (:primary, :secondary)
-    )
-    WHERE n = 1
+    SELECT source, security_id, price_date, close_zar, unit_anomaly FROM v_latest_price
+    WHERE security_id IS NOT NULL AND is_trading_day = 1 AND close_zar > 0 AND source IN (:primary, :secondary)
 ),
 p AS (SELECT * FROM latest WHERE source = :primary),
 s AS (SELECT * FROM latest WHERE source = :secondary),

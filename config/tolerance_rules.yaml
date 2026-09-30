@@ -31,3 +31,5 @@ dq:
   move_excess: 0.10          # and at least 10 percentage points more than the median share that day
   move_min_market: 10        # the median needs at least this many shares priced that day
   scale_diff_pct: 50         # sources more than 50% apart disagree on scale, whatever the exact ratio
+  whole_market_share: 0.9    # a session missing for 90% of shares is a market or vendor gap, not one quiet share
+  late_day_min_symbols: 10   # a session arriving late for at least this many shares is a late day, not a few stragglers

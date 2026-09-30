@@ -154,6 +154,20 @@ def misstatement(conn: sqlite3.Connection, file_id: str) -> tuple[float, float]:
     return net, gross
 
 
+def breakdown(conn: sqlite3.Connection, file_id: str) -> tuple[float, float, int]:
+    # Errors and timing are reported apart, and a position that could not be valued is counted, not treated as zero
+    unexplained, timing, unvalued = conn.execute(
+        """
+        SELECT COALESCE(SUM(CASE WHEN status NOT IN ('MATCH', 'SETTLE') THEN ABS(value_diff) END), 0),
+               COALESCE(SUM(CASE WHEN status = 'SETTLE' THEN ABS(value_diff) END), 0),
+               SUM(value_diff IS NULL)
+        FROM holding_recon_result WHERE file_id = ?
+        """,
+        (file_id,),
+    ).fetchone()
+    return unexplained, timing, unvalued or 0
+
+
 def report(conn: sqlite3.Connection, file_id: str) -> None:
     as_of, synthetic, lines = conn.execute(
         "SELECT as_of, synthetic, lines FROM holding_file WHERE file_id = ?", (file_id,)

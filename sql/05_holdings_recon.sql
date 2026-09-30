@@ -36,13 +36,8 @@ book AS (
 ),
 -- Our price: the close on the statement date from the latest snapshot that covers it, and the session before
 priced AS (
-    SELECT security_id, price_date, close_zar FROM (
-        SELECT security_id, price_date, close_zar,
-               ROW_NUMBER() OVER (PARTITION BY security_id, price_date ORDER BY snapshot_date DESC) AS latest
-        FROM stg_price
-        WHERE source = :price_source AND price_date IN (:as_of, :prev_day)
-    )
-    WHERE latest = 1
+    SELECT security_id, price_date, close_zar FROM v_latest_price
+    WHERE source = :price_source AND price_date IN (:as_of, :prev_day) AND unit_anomaly IS NULL
 ),
 joined AS (
     SELECT

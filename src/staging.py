@@ -6,7 +6,6 @@ import sys
 
 from src import config, db, trading_calendar
 
-WHOLE_MARKET = 0.9  # a session missing for this share of symbols is a market or vendor gap, not one quiet stock
 
 
 def build(conn: sqlite3.Connection) -> int:
@@ -28,7 +27,8 @@ def build(conn: sqlite3.Connection) -> int:
     with conn:
         conn.execute("DELETE FROM dq_setting")
         conn.executemany("INSERT INTO dq_setting VALUES (?, ?)",
-                         [(name, dq[name]) for name in ("move_abs", "move_excess", "move_min_market")])
+                         [(name, dq[name]) for name in ("move_abs", "move_excess", "move_min_market",
+                                                        "stale_price_days")])
     return conn.execute("SELECT COUNT(*) FROM stg_price").fetchone()[0]
 
 
@@ -51,7 +51,8 @@ def findings(conn: sqlite3.Connection, source: str, snap: str) -> dict:
         "WHERE source = ? AND snapshot_date = ? ORDER BY price_date",
         key,
     ).fetchall()
-    whole = [g for g in gaps if g[2] >= WHOLE_MARKET * g[1]]
+    whole_market = config.tolerance_rules()["dq"]["whole_market_share"]
+    whole = [g for g in gaps if g[2] >= whole_market * g[1]]
     whole_days = {g[0] for g in whole}
     return {
         "anomalies": conn.execute(
@@ -65,7 +66,7 @@ def findings(conn: sqlite3.Connection, source: str, snap: str) -> dict:
             key,
         ).fetchall(),
         "whole": whole,
-        "partial": [g for g in gaps if g[2] < WHOLE_MARKET * g[1]],
+        "partial": [g for g in gaps if g[2] < whole_market * g[1]],
         "missing_bars": [
             (day, sec) for day, sec in conn.execute(
                 "SELECT price_date, security_id FROM v_calendar_exception "
@@ -76,18 +77,9 @@ def findings(conn: sqlite3.Connection, source: str, snap: str) -> dict:
         ],
         "stale_days": stale_days,
         "stale": conn.execute(
-            """
-            SELECT security_id, price_date, stale_days, close_zar
-            FROM (
-                SELECT security_id, price_date, stale_days, close_zar,
-                       LEAD(stale_days) OVER (PARTITION BY vendor_symbol ORDER BY price_date) AS next_days
-                FROM stg_price
-                WHERE source = ? AND snapshot_date = ?
-            )
-            WHERE stale_days >= ? AND COALESCE(next_days, 0) <> stale_days + 1
-            ORDER BY stale_days DESC, price_date
-            """,
-            (*key, stale_days),
+            "SELECT security_id, end_date, stale_days, close_zar FROM v_frozen_run "
+            "WHERE source = ? AND snapshot_date = ? ORDER BY stale_days DESC, end_date",
+            key,
         ).fetchall(),
         "closed": conn.execute(
             """

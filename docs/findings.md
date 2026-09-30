@@ -263,6 +263,11 @@ A duplicated MTN line (+R26,055) and an unrecorded CLS transfer (+R10,163) offse
 position (−R35,243). Checking only the total is a common shortcut, and here it would have hidden three
 real errors. The report and the answers show both figures.
 
+**Correction, 30 September.** The gross figure mixed errors with a timing difference (ABG's unsettled
+buy, R4,955, finding 15) and left out GRT, whose value could not be read, without saying so. It is now
+split: errors R72,141 (15.86% of the book), timing R4,955, and one position not valued, so the error
+figure is a lower bound.
+
 ### 15. Not every quantity difference is an error
 
 ABG's statement holds 87.4 shares against 110.1 in the book. The difference is a buy on 23 September

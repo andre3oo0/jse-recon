@@ -101,6 +101,17 @@ class StagingTest(unittest.TestCase):
         self.bars("AAA.V", {"2026-09-21": 50, "2026-09-22": 51, "2026-09-23": 5000, "2026-09-25": 5050})
         self.assertEqual(self.anomalies("AAA.V"), {})
 
+    def test_frozen_runs_report_whether_anything_traded(self):
+        days = ["2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18", "2026-09-21", "2026-09-22"]
+        self.bars("AAA.V", {d: 1000 for d in days})
+        self.bars("BBB.V", {d: 2000 for d in days[:6]})
+        self.conn.execute("UPDATE raw_price SET volume = 0 WHERE vendor_symbol = 'BBB.V' AND price_date > '2026-09-14'")
+        self.conn.commit()
+        staging.build(self.conn)
+        runs = dict((sym, (days_, volume)) for sym, days_, volume in self.conn.execute(
+            "SELECT vendor_symbol, stale_days, volume_after_first_day FROM v_frozen_run"))
+        self.assertEqual(runs, {"AAA.V": (7, 6000.0), "BBB.V": (6, 0.0)})
+
     def test_unmapped_symbol_is_kept(self):
         self.bars("ZZZ.V", {"2026-09-25": 100})
         self.assertIsNone(self.staged("ZZZ.V")["2026-09-25"][0])

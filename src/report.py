@@ -6,6 +6,8 @@ import sys
 from datetime import date, datetime
 
 from openpyxl import Workbook
+from openpyxl.chart import BarChart, Reference
+from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
@@ -19,6 +21,8 @@ PCT = "0.00%;(0.00%);-"
 INT = "#,##0"
 DATE = "yyyy-mm-dd"
 DEC = "0.0"
+ALERT_FILL = PatternFill("solid", fgColor="F8D7D7")  # a break or price that needs a person today
+WATCH_FILL = PatternFill("solid", fgColor="FCEBC7")  # old, or to be verified
 
 # Bucket labels include "days" because Excel reads a bare "2-5" in a COUNTIFS criterion as the 5th of February
 AGE_BUCKET = '=IF({c}{r}<=1,"0-1 days",IF({c}{r}<=5,"2-5 days",IF({c}{r}<=20,"6-20 days","21+ days")))'
@@ -33,6 +37,7 @@ BREAK_CODES = [
     ("UNIT", "The sides are about 100x apart, or one side's unit is flagged or unknown"),
     ("CAL", "A price on a day the JSE was closed"),
     ("STALE", "A value break where one side's price has not moved for 5 or more sessions"),
+    ("SCALE", "The sides are more than 50% apart but not about 100x: a different instrument or scale"),
     ("TIMING", "A break that cleared within 2 trading days of first being seen"),
 ]
 
@@ -219,6 +224,12 @@ def summary(ws, day, generated):
         ("Holdings breaks", '=COUNTA(Holdings!$B:$B)-1-COUNTIFS(Holdings!$B:$B,"MATCH")', "Holdings"),
         ("Net difference (R)", "=SUM(Holdings!$L:$L)", "Holdings"),
         ("Gross difference (R)", "=SUMPRODUCT(ABS(Holdings!$L$2:$L$2000))", "Holdings"),
+        ("  of which errors (R)", '=SUMPRODUCT(ABS(Holdings!$L$2:$L$2000)*(Holdings!$B$2:$B$2000<>"MATCH")'
+                                  '*(Holdings!$B$2:$B$2000<>"SETTLE"))', "Holdings"),
+        ("  of which timing differences (R)", '=SUMPRODUCT(ABS(Holdings!$L$2:$L$2000)*(Holdings!$B$2:$B$2000="SETTLE"))',
+         "Holdings"),
+        ("Positions that could not be valued", '=SUMPRODUCT((Holdings!$B$2:$B$2000<>"")*(Holdings!$L$2:$L$2000=""))',
+         "Holdings"),
     ]
     for r, (label, formula, tab) in enumerate(lines, start=4):
         ws[f"A{r}"] = label
@@ -351,7 +362,27 @@ def build(conn: sqlite3.Connection, path) -> None:
     ws["A1"].font = Font(name=FONT, size=12, bold=True)
 
     about(wb.create_sheet("About"), conn, day, generated)
+    highlight(wb)
     wb.save(path)
+
+
+def highlight(wb) -> None:
+    # Colour marks what needs attention; the status text beside it says why, so nothing relies on colour alone
+    rules = [
+        ("Open Breaks", "A2:U5000", '$J2="SCALE"', ALERT_FILL), ("Open Breaks", "A2:U5000", '$J2="UNIT"', ALERT_FILL),
+        ("Open Breaks", "A2:U5000", '$I2="21+ days"', WATCH_FILL),
+        ("Approved Prices", "A2:F5000", '$E2="FALLBACK"', ALERT_FILL),
+        ("Approved Prices", "A2:F5000", 'OR($E2="TO_VERIFY",$E2="SECONDARY")', WATCH_FILL),
+    ]
+    for sheet, cells, formula, fill in rules:
+        wb[sheet].conditional_formatting.add(cells, FormulaRule(formula=[formula], fill=fill))
+    ws = wb["Summary"]
+    chart = BarChart()
+    chart.type, chart.title, chart.legend = "bar", "Open breaks by age", None
+    chart.add_data(Reference(ws, min_col=2, min_row=6, max_row=9))
+    chart.set_categories(Reference(ws, min_col=1, min_row=6, max_row=9))
+    chart.y_axis.title, chart.height, chart.width = "Breaks", 6, 12
+    ws.add_chart(chart, "E4")
 
 
 def main(argv=None) -> int:

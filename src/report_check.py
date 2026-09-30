@@ -97,12 +97,16 @@ def holdings_expected(conn) -> dict:
     if not latest:
         return {"Positions compared": 0, "Holdings breaks": 0}
     net, gross = holdings.misstatement(conn, latest[0])
+    unexplained, timing, unvalued = holdings.breakdown(conn, latest[0])
     return {
         "Positions compared": len(rows),
         "Positions agreeing": sum(r[1] == "MATCH" for r in rows),
         "Holdings breaks": sum(r[1] != "MATCH" for r in rows),
         "Net difference (R)": round(net, 2),
         "Gross difference (R)": round(gross, 2),
+        "  of which errors (R)": round(unexplained, 2),
+        "  of which timing differences (R)": round(timing, 2),
+        "Positions that could not be valued": unvalued,
     }
 
 

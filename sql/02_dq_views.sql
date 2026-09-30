@@ -51,6 +51,15 @@ LEFT JOIN stg_price p
 GROUP BY e.source, e.snapshot_date, e.price_date
 HAVING COUNT(DISTINCT e.vendor_symbol) > COUNT(DISTINCT p.vendor_symbol);
 
+-- Each price once: from the latest snapshot holding it, since a 3-month daily snapshot must not hide older history
+DROP VIEW IF EXISTS v_latest_price;
+CREATE VIEW v_latest_price AS
+SELECT * FROM (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY source, security_id, price_date ORDER BY snapshot_date DESC) AS latest
+    FROM stg_price
+)
+WHERE latest = 1;
+
 -- Thresholds for the views below, written by staging.build from tolerance_rules.yaml
 CREATE TABLE IF NOT EXISTS dq_setting (name TEXT PRIMARY KEY, value REAL NOT NULL);
 
@@ -94,3 +103,23 @@ JOIN market m USING (source, snapshot_date, price_date)
 WHERE ABS(r.ret) >= (SELECT value FROM dq_setting WHERE name = 'move_abs')
   AND ABS(r.ret - m.market_ret) >= (SELECT value FROM dq_setting WHERE name = 'move_excess')
   AND m.market_symbols >= (SELECT value FROM dq_setting WHERE name = 'move_min_market');
+
+-- Runs of the same close for the configured number of sessions or more, one row per run, with any volume traded after the first day
+DROP VIEW IF EXISTS v_frozen_run;
+CREATE VIEW v_frozen_run AS
+WITH ends AS (
+    SELECT source, snapshot_date, security_id, vendor_symbol, price_date, stale_days, close_zar,
+           LEAD(stale_days) OVER (PARTITION BY source, snapshot_date, vendor_symbol ORDER BY price_date) AS next_days
+    FROM stg_price
+)
+SELECT e.source, e.snapshot_date, e.security_id, e.vendor_symbol, e.price_date AS end_date, e.stale_days, e.close_zar,
+       (SELECT COALESCE(SUM(p.volume), 0) FROM stg_price p
+        WHERE p.source = e.source AND p.snapshot_date = e.snapshot_date AND p.vendor_symbol = e.vendor_symbol
+          AND p.price_date > (SELECT MAX(q.price_date) FROM stg_price q
+                              WHERE q.source = e.source AND q.snapshot_date = e.snapshot_date
+                                AND q.vendor_symbol = e.vendor_symbol AND q.price_date <= e.price_date
+                                AND q.stale_days = 1)
+          AND p.price_date <= e.price_date) AS volume_after_first_day
+FROM ends e
+WHERE e.stale_days >= (SELECT value FROM dq_setting WHERE name = 'stale_price_days')
+  AND COALESCE(e.next_days, 0) <> e.stale_days + 1;

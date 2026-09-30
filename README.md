@@ -20,14 +20,15 @@ including Vodacom and Sanlam, at one hundredth of their real price for a single 
 again on 25 April 2025, to Standard Bank and two others. A fund valued from this data on 10 January
 would have reported itself **6.54% smaller** than it was: R65,000 on a R1 million fund. That is 13
 times the 0.5% limit that South Africa's fund industry sets for how far out a fund's price can be
-before the error must be put right.
+before the error must be put right. All ten wrong prices were caught automatically, and no correct
+price was flagged as wrong in the 131,627 checked.
 
 **2. A whole trading day was published late, on the worst possible day.** Yahoo's prices for
 Monday 28 September 2026 did not appear until more than 17 hours after the market closed. When a
 price is missing, the industry standard lets a manager fall back on the most recent one available,
 here Friday's. That Monday, gold miners sold off: Gold Fields fell 12% on three times the volume of
-the four sessions before. A fund valued with Friday's prices would have been **overstated by 0.61%**, above
-the 0.5% tolerance. I could tell it was a vendor gap, not a market holiday, because the tool checks
+the four sessions before. A fund valued with Friday's prices would have been **overstated by 0.61%**,
+above the 0.5% limit. I could tell it was a vendor gap, not a market holiday, because the tool checks
 dates against its own JSE calendar, built from South Africa's public holiday law.
 
 **3. Past prices were not rewritten.** Comparing two fetches of the same three months, every one of
@@ -48,9 +49,6 @@ vendor, on 18 shares: on 27 August 2026 EODHD repeated the previous day's closin
 while reporting the correct trading volume for that day. Each source fails in its own way, which is
 exactly why a fund checks one against another.
 
-All ten wrong prices in finding 1 were caught automatically, and no correct price was flagged as
-wrong in the 131,627 checked.
-
 ## What this means
 
 The fund industry's own pricing standard (from ASISA, the South African industry body) asks fund
@@ -62,8 +60,9 @@ before it. Those are the two checks this tool runs.
   enough to look plausible.
 - Checking a single source against itself caught the 100x errors without a second vendor. Errors
   of a few percent look like normal price moves, and only a second, independent source can catch
-  those. So after evaluating nine alternatives, I added a commercial data vendor (EODHD), and
-  Yahoo's prices are now reconciled against it every day.
+  those. So after evaluating nine alternatives, I added a commercial data vendor (EODHD). Yahoo's
+  prices are reconciled against it every day, 18 shares at a time, so every share is checked
+  about once a week.
 - A missing price is more dangerous than a wrong one, because the fallback hides it. Nothing looks
   wrong with a fund valued at Friday's prices; the only way to know is to check every expected day
   against an independent calendar.
@@ -71,10 +70,12 @@ before it. Those are the two checks this tool runs.
 ## The same control for holdings
 
 The statement a fund gets from its broker has to agree with the fund's own records of what it
-bought and sold, and with an independent valuation. I built that reconciliation too. With no real brokerage export available, I
-generated a **synthetic** EasyEquities-style statement from real closing prices and planted eight kinds
-of break in it, from a duplicated line to a trade that had not yet settled. The tool finds all eight
-and raises no false alarms on the traps, such as a value 40 cents out.
+bought and sold, and with an independent valuation. I built that reconciliation too. With no real
+brokerage export available, I generated a **synthetic** EasyEquities-style statement from real closing
+prices and planted eight kinds of break in it, from a duplicated line to a trade that had not yet
+settled. The tool finds all eight and raises no false alarms on the traps, such as a value 40 cents
+out. The planted breaks and how they were made are in
+[fixtures/holdings/README.md](fixtures/holdings/README.md).
 
 The lesson it demonstrates: **netted, the statement was out by just 0.88%; gross, by 16.95%.** A
 duplicated line had hidden most of a missing position. A reconciliation that checks only the total
@@ -99,9 +100,21 @@ would have passed it.
    assumption written into the workbook. Before it is published, the job recalculates it and
    checks each headline figure against the database, so a wrong total fails the run.
 
-`python -m src.answers` prints the current answer to each of these questions from the stored data,
-and the daily job posts the answers in its run summary. The Excel report is attached to each run
-for 30 days.
+## The questions it answers every day
+
+1. Are the prices right?
+2. What would the errors have cost a fund?
+3. Is every trading day there?
+4. Does the vendor rewrite history, or publish late?
+5. Is the list of securities still accurate?
+6. Are any prices suspiciously frozen?
+7. Do independent sources agree?
+8. When sources disagree, does it get fixed, and how fast?
+9. Does the broker statement agree with the fund's own records?
+
+Each answer is worked out from the stored data, with the evidence behind it. `python -m src.answers`
+prints them, the daily job posts them in its run summary, and the Excel report, attached to each run
+for 30 days, includes them.
 
 ## Skills shown
 
@@ -113,6 +126,7 @@ for 30 days.
 | Automation | A scheduled GitHub Actions job that collects, checks, reconciles and reports daily |
 | Finance | Fund valuation (NAV), reconciliation breaks, tolerances, renames and delistings |
 | Data quality | Audit trails, tamper detection, and flagging problems rather than hiding them |
+| Research | Comparing nine data vendors, and checking facts against primary sources where possible: JSE market notices, the ASISA pricing standard, government holiday declarations |
 
 ## Progress
 
@@ -124,6 +138,8 @@ for 30 days.
 - [x] Tracking each difference from first appearance until it is resolved
 - [x] Excel report of breaks for an operations team, checked before it is published
 - [x] Holdings reconciliation against a brokerage-style export (synthetic, with planted breaks)
+- [ ] Investigating the first real breaks between Yahoo and EODHD, and recording each resolution
+- [ ] Writing up the results once EODHD has checked every share, in early October 2026
 
 ## Running it
 
@@ -147,3 +163,4 @@ report to `reports/`. The tests run with
 - [docs/sources.md](docs/sources.md) compares the nine price sources considered, and why EODHD was chosen
 - [docs/plan.md](docs/plan.md) covers the design and the reasoning behind each decision
 - [docs/easyequities_export.md](docs/easyequities_export.md) covers the brokerage export format
+- [fixtures/holdings/README.md](fixtures/holdings/README.md) lists the breaks planted in the synthetic statement

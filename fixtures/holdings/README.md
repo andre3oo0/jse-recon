@@ -34,8 +34,8 @@ The last three `MATCH` rows matter as much as the breaks: a recon that flags the
 the 40 cents would be raising false alarms.
 
 NTU, held at the broker under Transaction Capital's old code and matched by ISIN, joins the portfolio
-once the warehouse holds NTU closes. The first snapshot to request NTU was taken on the evening of
-2026-09-29. The mapping itself is covered by a unit test in the meantime.
+once the warehouse holds NTU closes. The first Yahoo snapshot to request NTU is the one due on the
+evening of 30 September 2026. The mapping itself is covered by a unit test in the meantime.
 
 ## Regenerating
 

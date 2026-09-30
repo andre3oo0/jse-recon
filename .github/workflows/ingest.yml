@@ -79,7 +79,7 @@ jobs:
           BATCH: ${{ inputs.batch }}
         run: python -m src.ingest --source eodhd --min-coverage 0.8 $REFETCH ${BATCH:+--batch "$BATCH"} 2>&1 | tee -a ingest.log
 
-      - name: AFX snapshot  # on request only: the site drops connections from cloud runners, so it runs locally
+      - name: AFX snapshot  # on request only: the site drops connections from cloud runners, so AFX is parked
         if: ${{ !cancelled() && contains(inputs.sources, 'afx') }}
         timeout-minutes: 35  # a hung site fails this step, not the job, so the other snapshots still commit
         shell: bash

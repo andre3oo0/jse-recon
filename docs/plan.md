@@ -30,7 +30,9 @@ trading_calendar ─┘   │
                   break_episode  first_seen, cleared_on, age, state; derived by replaying every snapshot
                       │
                       ▼
-              summary + Excel break report + write-up
+              answers + Excel break report (recalculated and cross-checked) + write-up
+                      ▲
+broker statement ──→ stg_holding ──→ holdings recon ←── ledger (book of record), our checked closes
 ```
 
 ## Break taxonomy
@@ -50,6 +52,21 @@ A tolerance breach needs **both** an absolute floor and a relative
 percentage, set per source pair and per field in
 `config/tolerance_rules.yaml`.
 
+Holdings statuses, for a broker statement against the book:
+
+| Code | Meaning |
+|---|---|
+| `DUP` | The security appears on more than one statement line |
+| `ONE_A` | In the book only |
+| `ONE_B` | At the broker only, or a contract code that cannot be mapped |
+| `PARSE` | An amount on the line cannot be read; its difference is unknown |
+| `UNIT` | The broker's price is about 100x the checked close |
+| `SETTLE` | The quantity gap equals trades not yet settled (T+3) |
+| `QTY` | The broker's value implies a different quantity from the book |
+| `STALE` | The broker's price is the previous session's close |
+| `PRICE` | The broker's price differs from the checked close |
+| `NOPRICE` | No checked close exists for the statement date |
+
 ## Phases
 
 | # | Phase | Status |
@@ -57,14 +74,13 @@ percentage, set per source pair and per field in
 | 0 | Scaffold, SQLite warehouse, config | Done |
 | 1 | Source adapter contract, Yahoo adapter, landing, ingest audit, scheduled ingest | Done, first snapshot 2026-09-29 |
 | 2 | Security master (statuses, renames), trading calendar, staging, data quality checks | Done; ISINs still to populate |
-| 3 | Recon engine: full outer join, tolerances, scope, classification; answers report | Done; restatement recon runs daily |
+| 3 | Recon engine: full outer join, tolerances, scope, classification; answers report | Done; restatement recon runs from the second Yahoo snapshot (30 September 2026) |
 | 4 | Break register: episodes, clearing, ageing, TIMING, analyst notes | Done; fills as daily comparisons accumulate |
 | 5 | Seeded break suite and completeness assertions | Done: one planted defect per break type |
 | 6 | Excel break report: summary, open, new, cleared, restatements, data quality, answers, definitions | Done; published daily as a run artifact |
-| 7 | Write-up: noise reduction and NAV-bp cost | |
+| 7 | Write-up: breaks by type, how fast they clear, and each finding's cost against the 0.5% limit | Once EODHD has checked every share, early October 2026 |
 | 8 | Second source (EODHD daily; AFX built but parked); holdings recon (synthetic EasyEquities export) | Done; NTU joins the fixture once its closes are in the warehouse |
 
-If time runs short, cut phase 8 before phase 5.
 
 ## Decisions
 
@@ -96,7 +112,7 @@ If time runs short, cut phase 8 before phase 5.
 | Rotated sources take the least recently tried securities | EODHD's 20 free calls and AFX's one page a minute still cover all 107 securities within a week; a failed day is picked up the next day. |
 | Units a vendor does not report are assumed in staging | Landing records what the vendor said, including silence. The assumption sits in `sources.yaml` with its evidence, and staged rows are flagged `unit_assumed`. |
 | AFX is parked, never proxied | Its servers drop connections from cloud runners, which is the site's choice to make, and every job must run in CI. |
-| HTTP follows the football-analytics client | OS trust store applied best-effort when a session is made, 429 and 5xx retried after the server's `Retry-After`, and a crawl delay measured from the previous request. Verification is never switched off. |
+| HTTP uses the operating system's certificate store | Networks that re-sign TLS break certifi's bundle; the OS store trusts their certificate, so verification is never switched off. 429 and 5xx responses are retried after the server's `Retry-After`, and a crawl delay is measured from the previous request. |
 | The break register is derived, not stored | Every run replays the recon for every stored snapshot, so first sightings, clearing dates and ages are a function of the history and cannot drift or be lost. |
 | A day without a comparison neither breaks nor clears | EODHD compares each security about once a week. A break stays open until a later comparison actually matches, not merely until one is missing. |
 | Restatement breaks are events, not episodes | A restatement is a change between two snapshots; by the next day both sides agree on the new value, so it would always look like it fixed itself. |

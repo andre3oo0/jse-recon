@@ -33,6 +33,9 @@ so a security fetched once a week still overlaps Yahoo's lookback completely.
   ABG.JSE closed at 21743.0 on 2026-09-28, the same as Yahoo's 21743 ZAc, so staging assumes ZAc. The
   landed files keep the vendor's silence, and staged rows are marked `unit_assumed`, so the assumption
   can be corrected without rewriting history.
+- **EODHD is not error-free either.** On 27 August 2026 it repeated the previous day's close for 8 of
+  the 18 securities compared with Yahoo, while carrying the correct volume; Yahoo was right. See finding
+  16 in [findings.md](findings.md).
 - **AFX publishes rands and ISINs.** Its pages state that prices are in rand, and its ISIN for NTU,
   ZAE000167391, matches the JSE's own notice of the Transaction Capital rename.
 - **AFX refuses cloud runners.** From GitHub Actions every IPv4 address timed out on connect; from a
@@ -52,5 +55,6 @@ git -C data/landing commit -m "afx snapshot"
 git -C data/landing push
 ```
 
-A run of 22 securities takes about 22 minutes. The next GitHub Actions run picks the snapshot up and
-reconciles it against Yahoo and EODHD.
+A run of 22 securities takes about 22 minutes. To reconcile it, add `[yahoo, afx]` and `[eodhd, afx]`
+back to `recon_pairs` in `config/sources.yaml`; the next GitHub Actions run then compares it with Yahoo
+and EODHD.

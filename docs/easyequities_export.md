@@ -55,9 +55,16 @@ Building against the real format forced three design decisions:
 
 A real export would replace the fixture without changing the recon: the file format is the contract.
 
-## Getting a real export
+## Using a real export
 
-With an EasyEquities account, export from the platform's Transaction
-History page yourself and drop the file in `data/landing/easyequities/`.
-The project will never ask for or handle EasyEquities login
-credentials.
+To reconcile a real statement, save it as a CSV with the columns above and
+the statement date at the end of the file name, and pass it with the
+matching ledger of trades:
+
+```bash
+python -m src.holdings --export easyequities_holdings_2026-10-30.csv --ledger my_ledger.csv
+```
+
+A real file is not labelled synthetic, so the report and the answers treat
+it as the real thing. The project never asks for or handles EasyEquities
+login details.

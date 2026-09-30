@@ -2,6 +2,7 @@
 
 weights:
   - as_at: 2024-12-31
+    basis: Satrix 40's published weights
     source: https://satrix.co.za/media/90845
     total_zar: 14457808075
     securities:
@@ -47,6 +48,7 @@ weights:
       EXX: 0.007315
       INL: 0.005929
   - as_at: 2025-12-31
+    basis: Satrix 40's published weights
     source: https://satrix.co.za/media/92341
     total_zar: 20487705568
     securities:

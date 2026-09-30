@@ -16,6 +16,8 @@ feeds such as Bloomberg, Refinitiv or the JSE's own; the controls are the same.)
 
 ## What I found
 
+![Yahoo's close for Standard Bank drops to R2.29 on 25 April 2025 and returns to about R230 the next trading day](docs/images/unit_error_sbk.png)
+
 **1. Some prices were 100 times too small.** On 10 January 2025, Yahoo recorded seven JSE shares,
 including Vodacom and Sanlam, at one hundredth of their real price for a single day. It happened
 again on 25 April 2025, to Standard Bank and two others. A price at one hundredth understates a fund
@@ -26,6 +28,8 @@ price alone would have understated it by **5.63% on 25 April, 11 times the limit
 have cost 5.35%. Any administrator's day-on-day check catches a 99% overnight fall, and this tool's
 checks caught all ten, with no correct price flagged among the 131,627. The finding is that this feed
 cannot value a fund without those controls.
+
+![The cost to a fund of one price 100 times too small rises with the holding's weight and crosses the 0.5% tolerance at 0.51%](docs/images/cost_by_weight.png)
 
 **2. A whole trading day was published late, on the worst possible day.** Yahoo's prices for
 Monday 28 September 2026 did not appear until more than 17 hours after the market closed. When a
@@ -60,6 +64,8 @@ day, its price moved between 4 and 5 cents, and it even reported trading on Heri
 was closed. EODHD had started reporting a different instrument under the code. Each break is recorded
 with its evidence and a resolution; each source fails in its own way, which is exactly why a fund checks
 one against another.
+
+![Yahoo and EODHD agree on Blu Label until 31 August; from 1 September EODHD reports 4 to 5 cents while Yahoo stays near R8](docs/images/wrong_instrument_blu.png)
 
 **7. Big moves need a person to check them.** A day-on-day movement check flags any share that moved
 15% or more when the median share did not. Over five years it flagged 58 moves, about one a month,
@@ -102,24 +108,11 @@ export stands in for one here.)
 
 ## How the tool found this
 
-1. **Collect.** An automated job saves every weekday's closing prices exactly as received.
-   Nothing stored is ever edited, and each file is fingerprinted, so any later change is detected.
-2. **Standardise.** Prices are converted from cents to rands, matched to the right company even
-   after a rename, and checked against the JSE trading calendar.
-3. **Check.** Prices 100x off their neighbours, big moves the market did not share, missing days,
-   prices on days the market was closed, and frozen prices are flagged for review. Nothing is
-   corrected silently.
-4. **Reconcile.** Each new snapshot is compared with the previous one, and with the same prices
-   from other vendors. Every difference is classified, explained and kept as a record.
-5. **Track.** Each disagreement is followed from the day it first appears until a later
-   comparison matches, so the tool can say what is still open, how long since the price date and
-   since it was found, which differences fixed themselves within two trading days, and which open
-   break would cost a Top 40 fund the most. An analyst can attach a note and a
-   resolution code to any break, kept in version control alongside the code.
-6. **Report.** Every run produces an Excel break report for an operations team: open breaks by
-   age, what is new, what cleared, restatements and data quality, with every definition and
-   assumption written into the workbook. Before it is published, the job recalculates it and
-   checks each headline figure against the database, so a wrong total fails the run.
+Every weekday a scheduled job saves each vendor's closing prices exactly as received, checks them
+(unit errors, big unexplained moves, missing and closed days, frozen prices), reconciles them against the
+previous day and the other vendor, tracks every break until it clears, and publishes an Excel break report
+that is recalculated and checked against the database before release. The design and the reason for each
+decision are in [docs/plan.md](docs/plan.md).
 
 ## The questions it answers every day
 
@@ -169,21 +162,25 @@ it was taken.
 
 ## Running it
 
-Python 3.10 or newer. From a clone of the repository:
+Anyone can run the whole pipeline on **synthetic** data: twelve fictional shares, two fictional vendors and
+every kind of error planted, from a 100x price to a vendor reporting the wrong instrument. Python 3.10 or
+newer:
 
 ```bash
 pip install -r requirements.txt
-git clone https://github.com/andre3oo0/jse-price-data.git data/landing
-python -m src.rebuild
-python -m src.answers
-python -m src.report
+python -m src.demo
 ```
 
-This builds a local database from every stored snapshot, prints the answers, and writes the Excel
-report to `reports/`. The snapshots live in a private repository, because the price vendors' terms restrict
-republishing their data; the daily job runs there too, calling this repository's workflow, so its logs and
-reports stay private. The tests run with
-`python -m unittest discover -s tests -t .`.
+It prints the nine answers for each fictional vendor and writes the Excel break report to
+[docs/sample/break_report_SYNTHETIC.xlsx](docs/sample/break_report_SYNTHETIC.xlsx). A test checks that every
+planted error is found and every trap stays quiet, and each push runs the demo and recalculates its report in
+LibreOffice. The tests run with `python -m unittest discover -s tests -t .`.
+
+The real snapshots live in a private repository, because the price vendors' terms restrict republishing
+their data; the daily job runs there too, calling this repository's workflow, so its logs and reports stay
+private. With access to it, `git clone https://github.com/andre3oo0/jse-price-data.git data/landing`, then
+`python -m src.rebuild`, `python -m src.recon`, `python -m src.answers` and `python -m src.report` rebuild
+everything; `python -m src.charts` redraws the charts above.
 
 ## More detail
 

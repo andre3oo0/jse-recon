@@ -5,3 +5,4 @@ openpyxl>=3.1
 requests>=2.31
 lxml>=5.0
 truststore>=0.9
+matplotlib>=3.8

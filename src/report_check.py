@@ -85,8 +85,8 @@ def expected_summary(conn) -> dict[str, int]:
 
 
 def largest_top40_cost(conn) -> float:
-    # Weight times difference for each open break, from the warehouse and the published weights, not the workbook
-    costs = [abs(weight * diff / 100) for key, day, diff in conn.execute(
+    # Weight times pricing error for each open break, from the warehouse and the published weights, not the workbook
+    costs = [weight * answers.pricing_error(diff) for key, day, diff in conn.execute(
         "SELECT key_id, price_date, latest_diff_pct FROM break_episode WHERE state = 'OPEN' AND latest_diff_pct IS NOT NULL")
         for weight in [answers.weights_on(day)[1].get(key)] if weight]
     return round(max(costs, default=0.0), 6)

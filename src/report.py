@@ -293,7 +293,8 @@ def build(conn: sqlite3.Connection, path) -> None:
         ("Age from price date", 11, INT), ("Found on first comparison", 11, None), ("Top 40 weight", 10, PCT),
         ("Cost in a Top 40 fund", 12, PCT),
     ], [(*r[:8], None, *r[8:], None) for r in with_top40_weight(open_breaks(conn))], none,
-        formulas={"I": AGE_BUCKET.format(c="H", r="{r}"), "U": '=IF(T{r}="","",T{r}*N{r})'})
+        formulas={"I": AGE_BUCKET.format(c="H", r="{r}"),
+                  "U": '=IF(OR(T{r}="",K{r}="",L{r}=""),"",T{r}*ABS(M{r})/MAX(K{r},L{r}))'})
 
     table(wb.create_sheet("New Today"), [
         ("Recon", 16, None), ("Security", 10, None), ("Name", 26, None), ("Price date", 12, DATE),

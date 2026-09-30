@@ -11,3 +11,6 @@ data/*.db-journal
 
 reports/*
 !reports/.gitkeep
+
+# Synthetic demo warehouse and landing: python -m src.demo
+data/demo/

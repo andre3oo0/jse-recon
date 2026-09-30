@@ -26,3 +26,10 @@ jobs:
 
       - name: Test
         run: python -m unittest discover -s tests -t . -v
+
+      - name: Synthetic demo, end to end  # anyone can reproduce this: fictional securities, planted errors, no vendor data
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libreoffice-calc > /dev/null
+          python -m src.demo --check

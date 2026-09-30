@@ -39,12 +39,27 @@ def unit_errors(conn: sqlite3.Connection, source: str) -> list[tuple[str, str, f
     ).fetchall()
 
 
-def weights_on(day: str) -> tuple[str, dict[str, float]]:
+def chosen_weights(day: str) -> dict:
     # The latest published year-end weights on or before the day, else the earliest; drift since then is ignored
     published = config.reference_weights()
     usable = [w for w in published if str(w["as_at"]) <= day]
-    chosen = max(usable, key=lambda w: str(w["as_at"])) if usable else min(published, key=lambda w: str(w["as_at"]))
+    return max(usable, key=lambda w: str(w["as_at"])) if usable else min(published, key=lambda w: str(w["as_at"]))
+
+
+def weights_on(day: str) -> tuple[str, dict[str, float]]:
+    chosen = chosen_weights(day)
     return str(chosen["as_at"]), chosen["securities"]
+
+
+def basis(day: str) -> str:
+    chosen = chosen_weights(day)
+    return f"{chosen.get('basis', 'published weights')} at {chosen['as_at']}"
+
+
+def pricing_error(diff_pct: float) -> float:
+    # Using the wrong one of two prices misstates a holding by the gap over the larger price: 99% for a 100x gap
+    ratio = 1 + diff_pct / 100
+    return abs(diff_pct / 100) / max(1.0, ratio)
 
 
 def cap_weighted_bp(errors: list[tuple[str, float]], day: str) -> tuple[float, str, list[str]]:
@@ -160,7 +175,7 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
         _, day, cap_bp, as_at, held = max(costed)
         out.append(f"   Worst day for a Top 40 fund, {day}: {abs(cap_bp):,.0f}bp ({abs(cap_bp) / 100:.2f}% of NAV), "
                    f"{abs(cap_bp) / MATERIALITY_BP:,.1f}x the tolerance, from {', '.join(held) or 'no Top 40 shares'}. "
-                   f"Basis: Satrix 40's published weights at {as_at}.")
+                   f"Basis: {basis(day)}.")
         for _, other_day, other_bp, _, other_held in sorted(costed, reverse=True)[1:]:
             out.append(f"   {other_day} in the same fund: {abs(other_bp):,.0f}bp, from "
                        f"{', '.join(other_held) or 'no Top 40 shares'}.")
@@ -231,7 +246,7 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
             out.append(f"   {day} was published late. The ASISA standard allows the last available price only after "
                        f"checking it is fair and reasonable. Used unchecked, the previous day's prices would have "
                        f"misstated a Top 40 fund by {cap_bp:+,.0f}bp ({abs(cap_bp) / MATERIALITY_BP:.1f}x the "
-                       f"tolerance; Satrix 40 weights at {as_at}), or an equal-weighted fund of {len(errors)} "
+                       f"tolerance; {basis(day)}), or an equal-weighted fund of {len(errors)} "
                        f"securities by {eq_bp:+,.0f}bp. Whether the delay matters depends on the fund's valuation "
                        f"point and publication deadline.")
     else:
@@ -242,8 +257,11 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
     ).fetchall()
     listed = conn.execute("SELECT COUNT(*) FROM security_master").fetchone()[0]
     out.append("5. Is the list of securities still accurate?")
-    out.append(f"   {len(retired)} of {listed} codes had been renamed or delisted, each checked against a public "
-               f"source: " + "; ".join(f"{s} ({n})" for s, n in retired) + ".")
+    if retired:
+        out.append(f"   {len(retired)} of {listed} codes had been renamed or delisted, each checked against a public "
+                   f"source: " + "; ".join(f"{s} ({n})" for s, n in retired) + ".")
+    else:
+        out.append(f"   None of the {listed} codes has been renamed or delisted.")
 
     stale_days = config.tolerance_rules()["dq"]["stale_price_days"]
     runs = conn.execute(
@@ -334,15 +352,16 @@ def resolution(conn: sqlite3.Connection) -> list[str]:
         ).fetchone()
         if oldest:
             lines.append(f"   Oldest open: {oldest[0]} on {oldest[1]}, {oldest[2]} trading days after that price date.")
-        largest = conn.execute(
+        priced = conn.execute(
             "SELECT key_id, price_date, latest_diff_pct, latest_status FROM break_episode "
-            "WHERE recon_name = ? AND state = 'OPEN' ORDER BY ABS(latest_diff_pct) DESC LIMIT 1",
+            "WHERE recon_name = ? AND state = 'OPEN' AND latest_diff_pct IS NOT NULL",
             (name,),
-        ).fetchone()
-        if largest and largest[2] is not None:
+        ).fetchall()
+        largest = max(priced, key=lambda r: pricing_error(r[2]), default=None)
+        if largest:
             weight = weights_on(largest[1])[1].get(largest[0])
-            cost = (f", which would cost a Top 40 fund {abs(weight * largest[2]) / 100:.2%} of NAV" if weight
-                    else ", a share outside the Top 40")
+            cost = (f", which would cost a Top 40 fund {weight * pricing_error(largest[2]):.2%} of NAV if the wrong "
+                    f"price were used" if weight else ", a share outside the Top 40")
             lines.append(f"   Largest open: {largest[0]} on {largest[1]}, {largest[2]:+.1f}% apart "
                          f"({largest[3]}){cost}.")
     return lines

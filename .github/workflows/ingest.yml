@@ -1,16 +1,13 @@
 name: ingest
 
-# Daily end-of-day snapshot, committed to the snapshots branch because runners keep nothing between jobs.
+# The daily run, called from the private data repository so its prices, logs and reports stay private.
 
 on:
-  schedule:
-    - cron: "30 16 * * 1-5"  # 18:30 SAST on weekdays, an hour after the JSE close
-  workflow_dispatch:
+  workflow_call:
     inputs:
       period:
         description: Vendor lookback
-        type: choice
-        options: [3mo, 1y, 5y, max]
+        type: string
         default: 3mo
       refetch:
         description: Replace today's snapshot if it already exists
@@ -28,25 +25,29 @@ on:
         description: Comma-separated sources to fetch, e.g. afx; blank for all
         type: string
         default: ""
-
-permissions:
-  contents: write
-
-concurrency:
-  group: ingest  # two runs pushing to the snapshots branch at once would race
-  cancel-in-progress: false
+    secrets:
+      EODHD_API_KEY:
+        required: false
 
 jobs:
   snapshot:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - name: Refuse to run from a public repository  # vendor prices, logs and reports must not be public
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: test "$(gh api "repos/${{ github.repository }}" --jq .private)" = "true"
 
-      - name: Check out snapshots into data/landing
+      - name: Check out the code
         uses: actions/checkout@v5
         with:
-          ref: snapshots
+          repository: andre3oo0/jse-share-price-reconciliation
+          ref: main
+
+      - name: Check out the calling data repository into data/landing
+        uses: actions/checkout@v5
+        with:
           path: data/landing
 
       - uses: actions/setup-python@v6
@@ -102,7 +103,7 @@ jobs:
           fi
           landed=$(git diff --cached --name-only | cut -d/ -f1 | sort -u | paste -sd, -)
           git commit -m "snapshots $(TZ=Africa/Johannesburg date +%F): $landed"
-          git push origin snapshots
+          git push origin HEAD:main
 
       - name: Data quality  # after the commit, so a failing report can never cost a snapshot
         if: ${{ !cancelled() }}

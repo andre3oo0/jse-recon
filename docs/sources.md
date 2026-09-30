@@ -45,7 +45,7 @@ so a security fetched once a week still overlaps Yahoo's lookback completely.
 ## Running AFX, if a machine becomes available
 
 The workflow skips AFX unless asked for by name. From a machine that can reach the site, with the
-snapshots worktree in place:
+private data repository cloned into `data/landing`:
 
 ```bash
 git -C data/landing pull --rebase

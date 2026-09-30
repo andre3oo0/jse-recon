@@ -2,7 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 
-# Snapshots branch, checked out here with: git worktree add data/landing snapshots
+# Private data repository, cloned here with: git clone https://github.com/andre3oo0/jse-price-data.git data/landing
 data/landing/
 
 # The warehouse is derived from snapshots: python -m src.rebuild

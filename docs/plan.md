@@ -77,7 +77,7 @@ Holdings statuses, for a broker statement against the book:
 | 3 | Recon engine: full outer join, tolerances, scope, classification; answers report | Done; restatement recon runs from the second Yahoo snapshot (30 September 2026) |
 | 4 | Break register: episodes, clearing, ageing, TIMING, analyst notes | Done; fills as daily comparisons accumulate |
 | 5 | Seeded break suite and completeness assertions | Done: one planted defect per break type |
-| 6 | Excel break report: summary, open, new, cleared, restatements, data quality, answers, definitions | Done; published daily as a run artifact |
+| 6 | Excel break report: summary, open, new, cleared, restatements, data quality, answers, definitions | Done; attached daily to the private repository's run |
 | 7 | Write-up: breaks by type, how fast they clear, and each finding's cost against the 0.5% limit | Once EODHD has checked every share, early October 2026 |
 | 8 | Second source (EODHD daily; AFX built but parked); holdings recon (synthetic EasyEquities export) | Done; NTU joins the fixture once its closes are in the warehouse |
 
@@ -91,7 +91,7 @@ Holdings statuses, for a broker statement against the book:
 | Landing is immutable | A re-run must not change what a vendor was recorded as saying. Refetch is explicit. |
 | Snapshots carry full lookback | Overlapping history between snapshots makes restatement recon possible with a single vendor. |
 | Daily lookback is 3 months | Enough overlap for restatement recon, at roughly 140 KB a day compressed. The 5-year backfill was taken once. |
-| Scheduled by GitHub Actions, stored on a `snapshots` branch | Runners are discarded after each job, so the snapshot must be committed somewhere durable. A separate orphan branch keeps data commits out of the code history. |
+| Scheduled by GitHub Actions, stored in a private repository | Runners are discarded after each job, so the snapshot must be committed somewhere durable. EODHD's and Yahoo's terms restrict republishing their prices, so the data, the run logs and the reports live in the private `jse-price-data` repository, which calls this repository's `ingest` workflow; the workflow refuses to run from a public repository. Until 30 September 2026 they sat on a public `snapshots` branch. |
 | Landing is gzipped | Git on Windows rewrites text line endings, which would break every manifest hash. A binary file is stored byte for byte. |
 | Coverage gate before landing | Cloud runner IPs get rate-limited by Yahoo. A mostly empty fetch must fail the job, not become a permanent snapshot. |
 | Warehouse is derived, never committed | `src.rebuild` recreates it from snapshots, and in CI that doubles as a daily hash check of the whole history. |
@@ -121,7 +121,7 @@ Holdings statuses, for a broker statement against the book:
 | Summary figures are formulas over the detail tabs | An analyst who filters or edits a tab sees the summary follow. Bucket labels read "2-5 days" because Excel reads a bare "2-5" in a criterion as a date. |
 | The report is recalculated and cross-checked before publishing | openpyxl writes formulas without results, so CI recalculates in LibreOffice, fails on any formula error, then compares every Summary figure with the same count taken from the database. A formula that evaluates cleanly but counts the wrong column still fails. |
 | A test ties each Summary formula to a column header | The cheap local guard for the same failure: if a column moves, the test names the formula that now points at the wrong one. |
-| Reports are run artifacts, not commits | They are derived from snapshots and regenerated daily; 30 days of history is enough to compare with yesterday. |
+| Reports are run artifacts, not commits | They are derived from snapshots and regenerated daily; 30 days of history is enough to compare with yesterday. They are attached to the private repository's runs, since they show vendor prices. |
 | Holdings quantity is implied and tested in rands | The EasyEquities export has no quantity column and shares are fractional; a position breaks when its value is out by more than R1.00 and 0.10%. |
 | Trade-date book, settlement-date broker | JSE equities settle T+3 on the trading calendar. A gap that equals unsettled trades is `SETTLE`, a timing difference, not `QTY`. |
 | Holdings map by ISIN before contract code | A broker can keep an old code after a rename; the ISIN survives it. |

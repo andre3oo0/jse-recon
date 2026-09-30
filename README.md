@@ -147,14 +147,16 @@ Python 3.10 or newer. From a clone of the repository:
 
 ```bash
 pip install -r requirements.txt
-git worktree add data/landing snapshots
+git clone https://github.com/andre3oo0/jse-price-data.git data/landing
 python -m src.rebuild
 python -m src.answers
 python -m src.report
 ```
 
 This builds a local database from every stored snapshot, prints the answers, and writes the Excel
-report to `reports/`. The tests run with
+report to `reports/`. The snapshots live in a private repository, because the price vendors' terms restrict
+republishing their data; the daily job runs there too, calling this repository's workflow, so its logs and
+reports stay private. The tests run with
 `python -m unittest discover -s tests -t .`.
 
 ## More detail

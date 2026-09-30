@@ -109,6 +109,7 @@ Holdings statuses, for a broker statement against the book:
 | Seeded tests use prices that move | Five identical closes is a stale price, so a flat fixture made every planted break look `STALE`. |
 | Costs are measured against ASISA's 0.5% tolerance | s10.3.3 of the ASISA NAV standard, the South African reference for when a pricing error is material. |
 | Output is organised as answers to questions | The project exists to answer whether a feed can be trusted to value a fund; `src.answers` states each answer with its evidence. |
+| Price errors are judged across every stored price | A daily snapshot covers three months, so answering from it alone would drop older errors. Each price is taken from the latest snapshot holding it (finding 18). |
 | Rotated sources take the least recently tried securities | EODHD's 20 free calls and AFX's one page a minute still cover all 107 securities within a week; a failed day is picked up the next day. |
 | Units a vendor does not report are assumed in staging | Landing records what the vendor said, including silence. The assumption sits in `sources.yaml` with its evidence, and staged rows are flagged `unit_assumed`. |
 | AFX is parked, never proxied | Its servers drop connections from cloud runners, which is the site's choice to make, and every job must run in CI. |

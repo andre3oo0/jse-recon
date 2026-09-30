@@ -12,27 +12,41 @@ def latest_snapshot(conn: sqlite3.Connection, source: str) -> str:
     return conn.execute("SELECT MAX(snapshot_date) FROM ingest_run WHERE source = ?", (source,)).fetchone()[0]
 
 
-def nav_impact_by_day(conn: sqlite3.Connection, source: str, snap: str) -> list[tuple[str, int, float]]:
+# Every stored price, each as the latest snapshot holding it has it; a 3-month daily snapshot must not hide older errors
+LATEST_PRICE = """
+    SELECT * FROM (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY security_id, price_date ORDER BY snapshot_date DESC) AS latest
+        FROM stg_price WHERE source = ?
+    )
+    WHERE latest = 1
+"""
+
+
+def stored_prices(conn: sqlite3.Connection, source: str) -> tuple[int, str, str]:
+    return conn.execute(
+        f"SELECT COUNT(*), MIN(price_date), MAX(price_date) FROM ({LATEST_PRICE})", (source,)
+    ).fetchone()
+
+
+def nav_impact_by_day(conn: sqlite3.Connection, source: str) -> list[tuple[str, int, float]]:
     # Equal-weighted fund across every security priced that day; the true price is the mean of the two reference bars
     return conn.execute(
-        """
-        WITH day_weight AS (
-            SELECT price_date, 1.0 / COUNT(DISTINCT security_id) AS w
-            FROM stg_price WHERE source = ? AND snapshot_date = ?
-            GROUP BY price_date
+        f"""
+        WITH p AS ({LATEST_PRICE}),
+        day_weight AS (
+            SELECT price_date, 1.0 / COUNT(DISTINCT security_id) AS w FROM p GROUP BY price_date
         ),
         errors AS (
             SELECT price_date,
                    close_zar / ((close_zar / ratio_ref1 + close_zar / ratio_ref2) / 2) - 1 AS rel_error
-            FROM stg_price
-            WHERE source = ? AND snapshot_date = ? AND unit_anomaly IS NOT NULL
+            FROM p WHERE unit_anomaly IS NOT NULL
         )
         SELECT e.price_date, COUNT(*), SUM(d.w * e.rel_error) * 10000
         FROM errors e JOIN day_weight d USING (price_date)
         GROUP BY e.price_date
         ORDER BY ABS(SUM(d.w * e.rel_error)) DESC
         """,
-        (source, snap, source, snap),
+        (source,),
     ).fetchall()
 
 
@@ -69,14 +83,18 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
         "",
     ]
 
-    impacts = nav_impact_by_day(conn, source, snap)
+    impacts = nav_impact_by_day(conn, source)
     wrong = sum(n for _, n, _ in impacts)
+    stored, stored_first, stored_last = stored_prices(conn, source)
+    scope = (f"all {stored:,} stored prices, {stored_first} to {stored_last}, each as the latest snapshot "
+             f"holding it has it")
     out.append("1. Are the prices right?")
     if impacts:
         days = ", ".join(f"{d} ({n} securities)" for d, n, _ in sorted(impacts))
-        out.append(f"   No. {wrong} prices ({wrong / total:.3%}) were about 100x wrong, on {len(impacts)} days: {days}.")
+        out.append(f"   No. Of {scope}, {wrong} ({wrong / stored:.3%}) were about 100x wrong, on {len(impacts)} "
+                   f"days: {days}.")
     else:
-        out.append("   No unit errors found.")
+        out.append(f"   No unit errors in {scope}.")
 
     out.append("2. What would those errors have cost?")
     if impacts:

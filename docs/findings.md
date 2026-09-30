@@ -305,3 +305,30 @@ The two sources agree on all 230 BLU prices up to 31 August. From 1 September EO
 and holds it there, including a price on Heritage Day (24 September), when the JSE was closed; Yahoo
 continues at around R7.50 to R8.80. The cause, whether a corporate action, a new listing line, or an
 EODHD symbol mapping error, is still to be established.
+
+## 2026-09-30: checking the daily answer against finding 1
+
+### 18. The daily answer would have stopped reporting the 100x prices
+
+Two runs printed "No unit errors found" under question 1, which looked like a contradiction of
+finding 1. Neither was about the 5-year backfill, and the backfill still holds all ten bad prices:
+rebuilt from the landed file (SHA-256 `1063422e…`, unchanged since 29 September), `stg_price` flags
+exactly the ten bars in the table above as `too_small`. Only one 5-year Yahoo snapshot exists, so
+Yahoo has not had a chance to correct them.
+
+- The public run of 29 September (36630024886) printed the line for EODHD's 18-share batch, whose
+  year of history does not reach January or April 2025. Its Yahoo answer, a few lines below, reports
+  the ten prices. The answers have covered full-universe feeds only since the next commit.
+- The private repository's dry run of 30 September (36679625342) answered from that day's Yahoo
+  snapshot, which covers three months (29 June to 29 September 2026). The answer was true of that
+  window, but it read as a verdict on the feed.
+
+That second case was a real defect. Questions 1 and 2 read only the latest snapshot, so from the
+first committed daily snapshot onward they would have reported no errors every day, while the bad
+prices sat in the warehouse. An analyst relying on the answer, or a performance calculation reading
+it, would have missed a 6.54% NAV error.
+
+**Fix.** Questions 1 and 2 now judge every stored price, each as the latest snapshot holding it has it.
+A later snapshot that corrects a price therefore clears it, and question 4 reports the rewrite. A
+planted test holds a bad price in an older snapshot that the latest one does not cover; the old query
+found nothing there.

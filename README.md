@@ -112,9 +112,10 @@ would have passed it.
 8. When sources disagree, does it get fixed, and how fast?
 9. Does the broker statement agree with the fund's own records?
 
-Each answer is worked out from the stored data, with the evidence behind it. `python -m src.answers`
-prints them, the daily job posts them in its run summary, and the Excel report, attached to each run
-for 30 days, includes them.
+Each answer is worked out from the stored data, with the evidence behind it. The first two cover
+every price stored, not only the latest day's download, so an old error never drops out of the
+answer. `python -m src.answers` prints them, the daily job posts them in its run summary, and the
+Excel report, attached to each run for 30 days, includes them.
 
 ## Skills shown
 

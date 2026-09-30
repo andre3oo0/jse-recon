@@ -2,7 +2,7 @@
 
 import requests
 
-USER_AGENT = "jse-recon/0.1 (personal research project; daily end-of-day prices)"
+USER_AGENT = "jse-share-price-reconciliation/0.1 (personal research project; daily end-of-day prices)"
 BACKOFF_BASE_SECONDS = 2.0
 
 

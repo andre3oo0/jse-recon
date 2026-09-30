@@ -1,4 +1,6 @@
-# Can a free price feed be trusted to value a fund?
+# JSE Share Price Reconciliation
+
+**Can a free source of share prices be trusted to value an investment fund?**
 
 Fund administrators work out what every fund is worth each day from share prices supplied by data
 vendors. If one of those prices is wrong, the fund's value is wrong, and investors who buy or sell
@@ -17,8 +19,8 @@ securities.
 including Vodacom and Sanlam, at one hundredth of their real price for a single day. It happened
 again on 25 April 2025, to Standard Bank and two others. A fund valued from this data on 10 January
 would have reported itself **6.54% smaller** than it was: R65,000 on a R1 million fund. That is 13
-times the 0.5% of NAV that the South African industry standard for unit trusts sets as the most a
-pricing error can be before it counts as material.
+times the 0.5% limit that South Africa's fund industry sets for how far out a fund's price can be
+before the error must be put right.
 
 **2. A whole trading day was published late, on the worst possible day.** Yahoo's prices for
 Monday 28 September 2026 did not appear until more than 17 hours after the market closed. When a
@@ -41,15 +43,21 @@ with a source that kept the old one.
 trading days. The longest was Fortress Real Estate, unchanged for 28 sessions in 2022. A frozen
 price can mean a trading suspension or a dead feed, and each needs a person to check which.
 
+**6. The commercial vendor made mistakes too.** Checking Yahoo against EODHD, a commercial data
+vendor, on 18 shares: on 27 August 2026 EODHD repeated the previous day's closing price for 8 of them,
+while reporting the correct trading volume for that day. Each source fails in its own way, which is
+exactly why a fund checks one against another.
+
 All ten wrong prices in finding 1 were caught automatically, and no correct price was flagged as
 wrong in the 131,627 checked.
 
 ## What this means
 
-The ASISA standard on unit trust pricing asks managers to validate prices by comparing multiple
-sources and reviewing each price against the previous one. Those are the two checks this tool runs.
+The fund industry's own pricing standard (from ASISA, the South African industry body) asks fund
+managers to check prices by comparing several sources and by comparing each price with the one
+before it. Those are the two checks this tool runs.
 
-- A fund priced from this feed alone would have breached the materiality tolerance at least three
+- A fund priced from this feed alone would have gone past that 0.5% limit at least three
   times: twice from the 100x errors and once from the late day, before counting any error small
   enough to look plausible.
 - Checking a single source against itself caught the 100x errors without a second vendor. Errors
@@ -62,8 +70,8 @@ sources and reviewing each price against the previous one. Those are the two che
 
 ## The same control for holdings
 
-A fund's statement from its broker or custodian has to agree with its own book of record, and with an
-independent valuation. I built that reconciliation too. With no real brokerage export available, I
+The statement a fund gets from its broker has to agree with the fund's own records of what it
+bought and sold, and with an independent valuation. I built that reconciliation too. With no real brokerage export available, I
 generated a **synthetic** EasyEquities-style statement from real closing prices and planted eight kinds
 of break in it, from a duplicated line to a trade that had not yet settled. The tool finds all eight
 and raises no false alarms on the traps, such as a value 40 cents out.

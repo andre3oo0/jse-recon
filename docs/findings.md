@@ -266,3 +266,42 @@ ABG's statement holds 87.4 shares against 110.1 in the book. The difference is a
 that settles T+3 on the 29th, because Heritage Day on the 24th pushes settlement back a day. A naive
 recon calls that a quantity break; this one classifies it `SETTLE`, and would call it `QTY` if the
 same gap came from a trade that should already have settled.
+
+## 2026-09-30: first comparison of Yahoo against EODHD
+
+The first EODHD batch (18 securities, a year of history each) against Yahoo's snapshot of 29 September:
+4,501 prices compared, 4,456 matching (99.00%), 45 breaks.
+
+### 16. EODHD repeated the previous day's close on 27 August 2026
+
+Eight of the 18 securities compared that day break, each by 0.2% to 1.6%. For every one of them,
+EODHD's close for the 27th equals the close both sources give for the 26th, while Yahoo has a
+different close for the 27th:
+
+| Security | Both sources, 26 Aug | EODHD, 27 Aug | Yahoo, 27 Aug | Same volume on the 27th |
+|---|---|---|---|---|
+| ADH | R48.31 | R48.31 | R48.81 | Yes |
+| AFE | R99.39 | R99.39 | R101.00 | Yes |
+| AGL | R914.14 | R914.14 | R917.13 | No |
+| ARL | R193.01 | R193.01 | R192.71 | Yes |
+| ATT | R16.30 | R16.30 | R16.50 | Yes |
+| AVI | R85.00 | R85.00 | R86.00 | Yes |
+| BLU | R8.00 | R8.00 | R8.13 | Yes |
+| CLH | R4.32 | R4.32 | R4.26 | Yes |
+
+The volumes show EODHD had the day's trading data but not the day's closing price: it carried the
+previous close forward. The other ten securities match exactly on the same day, so this was a partial
+incident, not a missing day.
+
+**Consequences.**
+- A commercial vendor is not automatically the right side of a break. Here the free source was right.
+- The `STALE` rule needs five unchanged sessions, so a one-day carry-forward only shows as `VAL`. A
+  direct check (a price equal to the other source's previous close, but not its current one) would
+  classify it at once. That is the next check to add.
+
+### 17. Blue Label Telecoms parts company from EODHD on 1 September (not yet investigated)
+
+The two sources agree on all 230 BLU prices up to 31 August. From 1 September EODHD reports R0.0425
+and holds it there, including a price on Heritage Day (24 September), when the JSE was closed; Yahoo
+continues at around R7.50 to R8.80. The cause, whether a corporate action, a new listing line, or an
+EODHD symbol mapping error, is still to be established.

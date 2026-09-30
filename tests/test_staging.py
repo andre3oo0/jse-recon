@@ -133,3 +133,63 @@ class StagingTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MovementCheckTest(unittest.TestCase):
+    DAYS = ["2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18", "2026-09-21"]
+
+    def setUp(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.conn = db.connect(tmp / "test.db")
+        self.addCleanup(self.conn.close)
+        db.apply_schema(self.conn)
+        self.conn.execute(
+            """
+            INSERT INTO ingest_run (
+                run_id, source, snapshot_date, fetched_at, session_cutoff, lookback_period,
+                symbols_requested, symbols_returned, rows_landed, landing_path, landing_sha256
+            ) VALUES ('r1', 'v', '2026-09-22', '2026-09-22T18:00:00+00:00', '2026-09-21', '5d', 0, 0, 0, '', '')
+            """
+        )
+
+    def market(self, overrides=None, shares=12, day_move=0.0):
+        rows = []
+        for i in range(shares):
+            price = 1000.0 + i
+            for d, day in enumerate(self.DAYS):
+                if d == 3:
+                    price *= 1 + day_move
+                close = (overrides or {}).get((i, day), price)
+                rows.append((f"S{i:02d}.V", day, close, close))
+        self.conn.executemany(
+            "INSERT INTO raw_price (source, snapshot_date, vendor_symbol, price_date, close, adj_close, volume, "
+            "reported_unit, run_id) VALUES ('v', '2026-09-22', ?, ?, ?, ?, 1000, 'ZAc', 'r1')",
+            rows,
+        )
+        self.conn.commit()
+        staging.build(self.conn)
+        return self.conn.execute("SELECT vendor_symbol, price_date FROM v_price_move ORDER BY 1, 2").fetchall()
+
+    def test_one_share_jumping_while_the_market_is_flat_is_flagged(self):
+        moves = self.market({(3, "2026-09-17"): 1003.0 * 1.40, (3, "2026-09-18"): 1003.0 * 1.40,
+                             (3, "2026-09-21"): 1003.0 * 1.40})
+        self.assertEqual(moves, [("S03.V", "2026-09-17")])
+
+    def test_ninety_nine_percent_fall_outside_the_unit_band_is_flagged(self):
+        fallen = {(5, day): 1005.0 * 0.006 for day in self.DAYS[3:]}
+        self.assertEqual(self.market(fallen), [("S05.V", "2026-09-17")])
+
+    def test_whole_market_falling_twenty_percent_is_not_flagged(self):
+        self.assertEqual(self.market(day_move=-0.20), [])
+
+    def test_twelve_percent_move_is_below_the_threshold(self):
+        moved = {(2, day): 1002.0 * 1.12 for day in self.DAYS[3:]}
+        self.assertEqual(self.market(moved), [])
+
+    def test_unit_glitch_is_left_to_the_unit_check_not_repeated_here(self):
+        glitch = {(4, "2026-09-17"): 1004.0 / 100}
+        self.assertEqual(self.market(glitch), [])
+
+    def test_too_few_shares_priced_gives_no_market_to_compare_with(self):
+        moved = {(1, day): 1001.0 * 1.50 for day in self.DAYS[3:]}
+        self.assertEqual(self.market(moved, shares=5), [])

@@ -10,32 +10,40 @@ difference.
 
 Free sources such as Yahoo Finance are widely used for research and personal investing, but they
 come with no guarantee. I wanted to know whether one could be trusted to value a fund of JSE shares,
-so I built a reconciliation tool and pointed it at five years of Yahoo's prices for 111 JSE
-securities.
+so I did the job of a fund administrator's pricing analyst: I built the daily price controls and
+pointed them at five years of Yahoo's prices for 107 JSE shares. (Real administrators buy licensed
+feeds such as Bloomberg, Refinitiv or the JSE's own; the controls are the same.)
 
 ## What I found
 
 **1. Some prices were 100 times too small.** On 10 January 2025, Yahoo recorded seven JSE shares,
 including Vodacom and Sanlam, at one hundredth of their real price for a single day. It happened
-again on 25 April 2025, to Standard Bank and two others. A fund valued from this data on 10 January
-would have reported itself **6.54% smaller** than it was: R65,000 on a R1 million fund. That is 13
-times the 0.5% limit that South Africa's fund industry sets for how far out a fund's price can be
-before the error must be put right. All ten wrong prices were caught automatically, and no correct
-price was flagged as wrong in the 131,627 checked.
+again on 25 April 2025, to Standard Bank and two others. A price at one hundredth understates a fund
+by 99% of that holding's weight, so **any holding above 0.51% of a fund breaches, on its own, the
+0.5% limit** that South Africa's fund industry sets for how far out a fund's price can be before the
+error must be put right. For a fund holding the Top 40 at its published weights, Standard Bank's bad
+price alone would have understated it by **5.63% on 25 April, 11 times the limit**; 10 January would
+have cost 5.35%. Any administrator's day-on-day check catches a 99% overnight fall, and this tool's
+checks caught all ten, with no correct price flagged among the 131,627. The finding is that this feed
+cannot value a fund without those controls.
 
 **2. A whole trading day was published late, on the worst possible day.** Yahoo's prices for
 Monday 28 September 2026 did not appear until more than 17 hours after the market closed. When a
-price is missing, the industry standard lets a manager fall back on the most recent one available,
-here Friday's. That Monday, gold miners sold off: Gold Fields fell 12% on three times the volume of
-the four sessions before. A fund valued with Friday's prices would have been **overstated by 0.61%**,
-above the 0.5% limit. I could tell it was a vendor gap, not a market holiday, because the tool checks
-dates against its own JSE calendar, built from South Africa's public holiday law.
+price is missing, the industry standard allows the most recent one, here Friday's, but only after
+checking it is fair and reasonable. That Monday it was not: gold miners sold off, and Gold Fields fell
+12% on three times its usual volume. Used unchecked, Friday's prices would have overstated an
+equal-weighted fund of the 107 shares by **0.61%**, above the 0.5% limit; the figure for a Top 40
+fund, where Gold Fields alone is 8.6%, follows once the 30 September snapshot is stored. Whether a
+delay like this matters depends on when the fund is valued and must publish. I could tell it was a
+vendor gap, not a market holiday, because the tool checks dates against its own JSE calendar, built
+from South Africa's public holiday law.
 
-**3. Past prices were not rewritten.** Comparing two fetches of the same three months, every one of
-6,678 closing prices matched to the cent. The only differences were the late day above. This is
-now checked every day as new snapshots arrive.
+**3. Past prices were not rewritten, in the one comparison so far.** Two fetches of the same three
+months, four hours apart on 29 September, agreed on every one of 6,678 closing prices to the cent;
+the only differences were the late day above. One comparison is thin evidence, so the check now runs
+on every new snapshot.
 
-**4. The list of securities goes out of date.** Five of the 111 codes had been renamed or delisted,
+**4. The list of securities goes out of date.** Five of the 112 codes on file had been renamed or delisted,
 four of them since March 2025, including Transaction Capital becoming Nutun. Yahoo had quietly moved
 Transaction Capital's entire price history under the new code, which would break any comparison
 with a source that kept the old one.
@@ -49,20 +57,25 @@ vendor, on 18 shares: on 27 August 2026 EODHD repeated the previous day's closin
 while reporting the correct trading volume for that day. Each source fails in its own way, which is
 exactly why a fund checks one against another.
 
+**7. Big moves need a person to check them.** A day-on-day movement check flags any share that moved
+15% or more when the median share did not. Over five years it flagged 58 moves, about one a month,
+the largest Super Group's 58% fall on 18 June 2025. Some will be company news and some corporate
+actions; none is investigated yet. Yahoo's adjusted close did not adjust any of the 58, so the feed cannot tell a corporate action from
+an error: each has to be checked against company announcements before the price is used.
+
 ## What this means
 
 The fund industry's own pricing standard (from ASISA, the South African industry body) asks fund
 managers to check prices by comparing several sources and by comparing each price with the one
-before it. Those are the two checks this tool runs.
+before it. The tool runs both: a movement check and a 100x unit check on each source, and a daily
+reconciliation between sources.
 
-- A fund priced from this feed alone would have gone past that 0.5% limit at least three
-  times: twice from the 100x errors and once from the late day, before counting any error small
-  enough to look plausible.
-- Checking a single source against itself caught the 100x errors without a second vendor. Errors
-  of a few percent look like normal price moves, and only a second, independent source can catch
-  those. So after evaluating nine alternatives, I added a commercial data vendor (EODHD). Yahoo's
-  prices are reconciled against it every day, 18 shares at a time, so every share is checked
-  about once a week.
+- A fund priced from this feed without controls would have gone past the 0.5% limit at least
+  three times: twice from the 100x errors and once from the late day.
+- The single-source checks catch errors too large to be real. Errors of a few percent look like
+  normal price moves, and only a second, independent source can catch those. So after evaluating
+  nine alternatives, I added a commercial data vendor (EODHD). Yahoo's prices are reconciled against
+  it every day, 18 shares at a time, so every share is checked about once a week.
 - A missing price is more dangerous than a wrong one, because the fallback hides it. Nothing looks
   wrong with a fund valued at Friday's prices; the only way to know is to check every expected day
   against an independent calendar.
@@ -77,9 +90,11 @@ settled. The tool finds all eight and raises no false alarms on the traps, such 
 out. The planted breaks and how they were made are in
 [fixtures/holdings/README.md](fixtures/holdings/README.md).
 
-The lesson it demonstrates: **netted, the statement was out by just 0.88%; gross, by 16.95%.** A
-duplicated line had hidden most of a missing position. A reconciliation that checks only the total
-would have passed it.
+This is a test of the control, not a finding about any real statement: the sizes of the planted
+breaks set the numbers. It shows why a reconciliation must check every position: **netted, the
+planted breaks leave the statement out by 0.88%; gross, by 16.95%**, because a duplicated line hides
+most of a missing position. (A real fund reconciles against its custodian's statement; the retail
+export stands in for one here.)
 
 ## How the tool found this
 
@@ -87,8 +102,9 @@ would have passed it.
    Nothing stored is ever edited, and each file is fingerprinted, so any later change is detected.
 2. **Standardise.** Prices are converted from cents to rands, matched to the right company even
    after a rename, and checked against the JSE trading calendar.
-3. **Check.** Prices 100x off their neighbours, missing days, prices on days the market was
-   closed, and frozen prices are flagged for review. Nothing is corrected silently.
+3. **Check.** Prices 100x off their neighbours, big moves the market did not share, missing days,
+   prices on days the market was closed, and frozen prices are flagged for review. Nothing is
+   corrected silently.
 4. **Reconcile.** Each new snapshot is compared with the previous one, and with the same prices
    from other vendors. Every difference is classified, explained and kept as a record.
 5. **Track.** Each disagreement is followed from the day it first appears until a later
@@ -116,6 +132,10 @@ Each answer is worked out from the stored data, with the evidence behind it. The
 every price stored, not only the latest day's download, so an old error never drops out of the
 answer. `python -m src.answers` prints them, the daily job posts them in its run summary, and the
 Excel report, attached to each run for 30 days, includes them.
+
+The numbers of shares differ by what is counted: 112 codes are on file, 107 are requested each day
+(the five retired codes are not), and the five-year history holds 106, because Nutun was added after
+it was taken.
 
 ## Skills shown
 

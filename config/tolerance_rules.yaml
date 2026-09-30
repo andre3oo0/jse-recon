@@ -26,3 +26,7 @@ dq:
   stale_price_days: 5        # identical close for N consecutive trading days
   unit_ratio_band: [80, 125]  # ~100x off both neighbours; wide enough to allow a real price move on the day
   timing_clear_days: 2       # breaks that clear within N days are TIMING
+  # Day-on-day movement exception: a big move that the market did not share, for an analyst to verify
+  move_abs: 0.15             # the share moved at least 15% from its previous close
+  move_excess: 0.10          # and at least 10 percentage points more than the median share that day
+  move_min_market: 10        # the median needs at least this many shares priced that day

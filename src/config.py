@@ -27,3 +27,7 @@ def tolerance_rules() -> dict:
 
 def sources() -> dict:
     return load_yaml("sources.yaml")
+
+
+def reference_weights() -> list[dict]:
+    return load_yaml("reference_weights.yaml")["weights"]

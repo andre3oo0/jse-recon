@@ -134,3 +134,30 @@ class FeedsUnderTestTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CapWeightedCostTest(unittest.TestCase):
+    WEIGHTS = [
+        {"as_at": "2024-12-31", "securities": {"AAA": 0.05, "BBB": 0.01}},
+        {"as_at": "2025-12-31", "securities": {"AAA": 0.02}},
+    ]
+
+    def setUp(self):
+        patch = mock.patch.object(config, "reference_weights", lambda: self.WEIGHTS)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_uses_the_latest_year_end_on_or_before_the_day(self):
+        self.assertEqual(answers.weights_on("2025-06-30")[0], "2024-12-31")
+        self.assertEqual(answers.weights_on("2026-01-05")[0], "2025-12-31")
+
+    def test_a_day_before_any_published_weights_uses_the_earliest(self):
+        self.assertEqual(answers.weights_on("2023-03-01")[0], "2024-12-31")
+
+    def test_a_hundredth_price_costs_its_weight_times_ninety_nine_percent(self):
+        bp, as_at, held = answers.cap_weighted_bp([("AAA", -0.99), ("ZZZ", -0.99)], "2025-01-10")
+        self.assertAlmostEqual(bp, -495.0)
+        self.assertEqual((as_at, held), ("2024-12-31", ["AAA"]))
+
+    def test_a_share_outside_the_index_costs_nothing_in_a_top_40_fund(self):
+        self.assertEqual(answers.cap_weighted_bp([("ZZZ", -0.99)], "2025-01-10")[0], 0.0)

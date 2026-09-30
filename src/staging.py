@@ -24,6 +24,11 @@ def build(conn: sqlite3.Connection) -> int:
             {"unit_lo": band[0], "unit_hi": band[1]},
         )
     conn.executescript((config.SQL_DIR / "02_dq_views.sql").read_text(encoding="utf-8"))
+    dq = config.tolerance_rules()["dq"]
+    with conn:
+        conn.execute("DELETE FROM dq_setting")
+        conn.executemany("INSERT INTO dq_setting VALUES (?, ?)",
+                         [(name, dq[name]) for name in ("move_abs", "move_excess", "move_min_market")])
     return conn.execute("SELECT COUNT(*) FROM stg_price").fetchone()[0]
 
 
@@ -121,6 +126,14 @@ def report(conn: sqlite3.Connection) -> None:
         print(f"  Prices unchanged for {f['stale_days']}+ sessions: {len(f['stale'])}")
         for sec, end, days, close in f["stale"][:5]:
             print(f"    {sec:<4} R{close:,.2f} for {days} sessions, to {end}")
+        moves = conn.execute(
+            "SELECT security_id, price_date, ret, market_ret FROM v_price_move "
+            "WHERE source = ? AND snapshot_date = ? ORDER BY price_date DESC",
+            (source, snap),
+        ).fetchall()
+        print(f"  Moves the market did not share, to verify against company news: {len(moves)}")
+        for sec, day, ret, market in moves[:5]:
+            print(f"    {day}  {sec or '?':<4} {ret:+.1%} against a median share {market:+.1%}")
         print(f"  Days with bars while the JSE was closed: {len(f['closed'])}")
         for day, reason, bars, traded in f["closed"]:
             print(f"    {day}  {reason:<34} {bars} bars, {traded} with volume")

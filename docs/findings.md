@@ -185,8 +185,11 @@ separately. Without that rule, every universe change would appear as a wall of b
 
 Section 4.2.1 of the ASISA NAV standard says prices should be validated "for reasonability through
 actions such as: (i) Comparing multiple sources; and (ii) Reviewing the price against the previous"
-price. The unit check does the second with one source; the reconciliation engine does the first as
-soon as a second source is available.
+price. The reconciliation engine does the first as soon as a second source is available.
+
+**Correction, 30 September.** This finding originally said the unit check does the second. It does
+not: it flags only prices about 100x off, so a price 30% or 10x wrong passed. A day-on-day movement
+check now covers the second (finding 19).
 
 ### 11. The late day would have caused a material error
 
@@ -270,7 +273,9 @@ same gap came from a trade that should already have settled.
 ## 2026-09-30: first comparison of Yahoo against EODHD
 
 The first EODHD batch (18 securities, a year of history each) against Yahoo's snapshot of 29 September:
-4,501 prices compared, 4,456 matching (99.00%), 45 breaks.
+of the 4,482 prices both sources reported, 4,456 match (99.4%); another 19 were reported by one source
+only (18 `ONE_B`, 1 `CAL`), making 45 breaks. (First written as "4,501 compared, 99.00%", which counted
+the one-sided prices as compared; the daily answer uses the definition above, so this now matches it.)
 
 ### 16. EODHD repeated the previous day's close on 27 August 2026
 
@@ -301,10 +306,13 @@ incident, not a missing day.
 
 ### 17. Blue Label Telecoms parts company from EODHD on 1 September (not yet investigated)
 
-The two sources agree on all 230 BLU prices up to 31 August. From 1 September EODHD reports R0.0425
-and holds it there, including a price on Heritage Day (24 September), when the JSE was closed; Yahoo
-continues at around R7.50 to R8.80. The cause, whether a corporate action, a new listing line, or an
-EODHD symbol mapping error, is still to be established.
+The two sources agree on all 230 BLU prices up to 31 August (R8.50 that day). From 1 September EODHD
+reports R0.0525 (1 to 7 September), R0.0475 (8 September) and R0.0425 (9 to 29 September), including a
+price on Heritage Day (24 September), when the JSE was closed; Yahoo continues at around R7.50 to R8.80.
+The cause, whether a corporate action, a new listing line, or an EODHD symbol mapping error, is still
+to be established. A price that moves suggests EODHD is reporting a real instrument that trades,
+rather than a frozen mapping. (First written as "falls to R0.0425 and holds it there", which was wrong
+about 1 to 8 September.)
 
 ## 2026-09-30: checking the daily answer against finding 1
 
@@ -332,3 +340,47 @@ it, would have missed a 6.54% NAV error.
 A later snapshot that corrects a price therefore clears it, and question 4 reports the rewrite. A
 planted test holds a bad price in an older snapshot that the latest one does not cover; the old query
 found nothing there.
+
+## 2026-09-30: acting on an external review
+
+A hiring review of the project (30 September) found the claims ran ahead of the evidence in places.
+Each point was checked against the code and the data before acting.
+
+### 19. A movement check flags 58 moves in five years, and catches BLU on the EODHD side
+
+The only single-source check was the 100x unit check, so a price 30% or 10x wrong passed staging. The
+new check (`v_price_move`) flags a share that moved 15% or more from its previous close and at least
+10 percentage points more than the median share that day, so a market-wide fall does not flood it.
+Thresholds are in `config/tolerance_rules.yaml`.
+
+- Yahoo, five years: **58 moves**, about one a month; the largest is Super Group, down 58% on
+  18 June 2025. None is investigated yet; some will be company news and some corporate actions.
+- **Yahoo's adjusted close did not adjust any of the 58**: each has an adjusted return within one
+  percentage point of its price return. Adjusted close cannot tell a corporate action from an error.
+- EODHD's batch: two moves, one of them BLU's 99.4% fall on 1 September (finding 17). Its ratio to
+  Yahoo is about 160x, outside the unit band, so the unit check alone missed it.
+- Planted tests: a share jumping 40% on a flat day and a 99% fall outside the unit band are flagged; a
+  whole market falling 20%, a 12% move, a unit glitch (left to the unit check) and a day with too few
+  shares priced are not.
+
+### 20. The cost of the 100x prices, restated for a real fund
+
+The 6.54% figure assumed a fund holding all 106 shares at 0.94% each, which no South African equity
+fund does. Two better statements:
+
+- **For any fund**: a price at one hundredth understates the fund by 99% of that holding's weight, so
+  any holding above 0.51% breaches the 0.5% tolerance on its own.
+- **For a fund holding the Top 40 at Satrix 40's published year-end weights** (audited financial
+  statements, note 3; `config/reference_weights.yaml`): **25 April 2025 costs 5.63%**, all of it
+  Standard Bank (5.69% of the fund at 31 December 2024); **10 January 2025 costs 5.35%**, from Pepkor,
+  Sanlam and Vodacom. The other bad prices fall on shares outside the Top 40. Drift between the
+  year-end and the error date is ignored.
+- Both kinds of check catch errors this large, as would any administrator's day-on-day check. The
+  cost is what a fund valued from the raw feed without controls would have shown, which is the point:
+  the feed needs controls.
+
+The late day (finding 11) is costed on the same Top 40 basis by the daily answer once a snapshot
+containing 28 September is stored; the only Yahoo snapshot stored so far was taken while it was
+missing. The answer now also states ASISA s4.2.2's condition (the last available price may be used
+"subject to verification that this is fair and reasonable") and that the delay's importance depends
+on the fund's valuation point.

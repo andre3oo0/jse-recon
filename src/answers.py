@@ -28,6 +28,45 @@ def stored_prices(conn: sqlite3.Connection, source: str) -> tuple[int, str, str]
     ).fetchone()
 
 
+def unit_errors(conn: sqlite3.Connection, source: str) -> list[tuple[str, str, float]]:
+    # The true price is taken as the mean of the two reference bars
+    return conn.execute(
+        f"""
+        SELECT price_date, security_id, close_zar / ((close_zar / ratio_ref1 + close_zar / ratio_ref2) / 2) - 1
+        FROM ({LATEST_PRICE}) WHERE unit_anomaly IS NOT NULL ORDER BY price_date, security_id
+        """,
+        (source,),
+    ).fetchall()
+
+
+def weights_on(day: str) -> tuple[str, dict[str, float]]:
+    # The latest published year-end weights on or before the day, else the earliest; drift since then is ignored
+    published = config.reference_weights()
+    usable = [w for w in published if str(w["as_at"]) <= day]
+    chosen = max(usable, key=lambda w: str(w["as_at"])) if usable else min(published, key=lambda w: str(w["as_at"]))
+    return str(chosen["as_at"]), chosen["securities"]
+
+
+def cap_weighted_bp(errors: list[tuple[str, float]], day: str) -> tuple[float, str, list[str]]:
+    as_at, weights = weights_on(day)
+    held = [(sec, err) for sec, err in errors if sec in weights]
+    return sum(weights[sec] * err for sec, err in held) * 10000, as_at, [sec for sec, _ in held]
+
+
+def movement_exceptions(conn: sqlite3.Connection, source: str) -> tuple[int, int]:
+    # Each move once, from the latest snapshot holding it
+    return conn.execute(
+        """
+        SELECT COUNT(*), SUM(ABS(adj_ret - ret) < 0.01) FROM (
+            SELECT ret, adj_ret,
+                   ROW_NUMBER() OVER (PARTITION BY security_id, price_date ORDER BY snapshot_date DESC) AS latest
+            FROM v_price_move WHERE source = ?
+        ) WHERE latest = 1
+        """,
+        (source,),
+    ).fetchone()
+
+
 def nav_impact_by_day(conn: sqlite3.Connection, source: str) -> list[tuple[str, int, float]]:
     # Equal-weighted fund across every security priced that day; the true price is the mean of the two reference bars
     return conn.execute(
@@ -50,15 +89,15 @@ def nav_impact_by_day(conn: sqlite3.Connection, source: str) -> list[tuple[str, 
     ).fetchall()
 
 
-def rollforward_impact(conn: sqlite3.Connection, source: str, snap: str, day: str) -> tuple[float, int]:
-    # ASISA s4.2.2 lets a manager use the most recent available price when today's is missing; this costs that
+def rollforward_errors(conn: sqlite3.Connection, source: str, snap: str, day: str) -> list[tuple[str, float]]:
+    # ASISA s4.2.2 allows the last available price, subject to checking it is fair and reasonable; this is the unchecked cost
     return conn.execute(
         """
         WITH b AS (
             SELECT security_id, price_date, close_zar FROM stg_price
             WHERE source = ? AND snapshot_date = ? AND close_zar > 0
         )
-        SELECT AVG(p.close_zar / c.close_zar - 1) * 10000, COUNT(*)
+        SELECT c.security_id, p.close_zar / c.close_zar - 1
         FROM b c
         JOIN b p
             ON  p.security_id = c.security_id
@@ -66,7 +105,12 @@ def rollforward_impact(conn: sqlite3.Connection, source: str, snap: str, day: st
         WHERE c.price_date = ?
         """,
         (source, snap, day, day),
-    ).fetchone()
+    ).fetchall()
+
+
+def rollforward_impact(conn: sqlite3.Connection, source: str, snap: str, day: str) -> tuple[float, int]:
+    errors = rollforward_errors(conn, source, snap, day)
+    return (sum(e for _, e in errors) / len(errors) * 10000 if errors else 0.0), len(errors)
 
 
 def answers(conn: sqlite3.Connection, source: str) -> list[str]:
@@ -95,15 +139,38 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
                    f"days: {days}.")
     else:
         out.append(f"   No unit errors in {scope}.")
+    moves, unadjusted = movement_exceptions(conn, source)
+    rules = config.tolerance_rules()["dq"]
+    out.append(f"   Separately, {moves or 0} day-on-day moves of {rules['move_abs']:.0%} or more that the median share "
+               f"did not share (by {rules['move_excess']:.0%} or more). These are not errors in themselves: each needs "
+               f"checking against company news before the price is used. The feed's adjusted close did not adjust "
+               f"{unadjusted or 0} of them, so it cannot tell a corporate action from an error.")
 
     out.append("2. What would those errors have cost?")
+    breach = MATERIALITY_BP / 10000 / 0.99
+    out.append(f"   For any fund: a price 100x too small understates the fund by 99% of that holding's weight, so a "
+               f"single holding above {breach:.2%} of the fund breaches the {MATERIALITY_BP / 100:g}% ASISA tolerance "
+               f"on its own.")
     if impacts:
-        day, n, bp = impacts[0]
-        direction = "understated" if bp < 0 else "overstated"
-        out.append(f"   Worst day {day}: a fund valued from this feed would have been {direction} by {abs(bp):,.0f}bp "
-                   f"({abs(bp) / 100:.2f}% of NAV), {abs(bp) / MATERIALITY_BP:,.1f}x the {MATERIALITY_BP / 100:g}% "
-                   f"materiality tolerance in the ASISA NAV standard. Basis: an equal-weighted fund across the "
-                   f"securities priced that day.")
+        errors = unit_errors(conn, source)
+        costed = []
+        for day, _, _ in impacts:
+            cap_bp, as_at, held = cap_weighted_bp([(s, e) for d, s, e in errors if d == day], day)
+            costed.append((abs(cap_bp), day, cap_bp, as_at, held))
+        _, day, cap_bp, as_at, held = max(costed)
+        out.append(f"   Worst day for a Top 40 fund, {day}: {abs(cap_bp):,.0f}bp ({abs(cap_bp) / 100:.2f}% of NAV), "
+                   f"{abs(cap_bp) / MATERIALITY_BP:,.1f}x the tolerance, from {', '.join(held) or 'no Top 40 shares'}. "
+                   f"Basis: Satrix 40's published weights at {as_at}.")
+        for _, other_day, other_bp, _, other_held in sorted(costed, reverse=True)[1:]:
+            out.append(f"   {other_day} in the same fund: {abs(other_bp):,.0f}bp, from "
+                       f"{', '.join(other_held) or 'no Top 40 shares'}.")
+        worst_day, _, worst_bp = impacts[0]
+        priced = conn.execute(f"SELECT COUNT(DISTINCT security_id) FROM ({LATEST_PRICE}) WHERE price_date = ?",
+                              (source, worst_day)).fetchone()[0]
+        out.append(f"   Illustrative, equal-weighted across all {priced} securities priced on {worst_day}: "
+                   f"{abs(worst_bp):,.0f}bp ({abs(worst_bp) / 100:.2f}%).")
+        out.append("   A unit check or a day-on-day movement check catches errors this large. The cost is what a fund "
+                   "valued from the raw feed, without those controls, would have shown.")
     else:
         out.append("   Nothing to cost.")
 
@@ -149,13 +216,24 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
             """,
             (run_id,),
         )]
-        out.append(f"   Between snapshots {snap_a} and {snap_b}: {changed or 0} of {compared or 0:,} prices were "
-                   f"rewritten, and {late or 0} appeared only in the later snapshot.")
+        hours = conn.execute(
+            "SELECT (julianday(MAX(fetched_at)) - julianday(MIN(fetched_at))) * 24 FROM ingest_run "
+            "WHERE source = ? AND snapshot_date IN (?, ?)",
+            (source, snap_a, snap_b),
+        ).fetchone()[0] or 0
+        out.append(f"   Between snapshots {snap_a} and {snap_b}, fetched {hours:,.0f} hours apart: {changed or 0} of "
+                   f"{compared or 0:,} prices were rewritten, and {late or 0} appeared only in the later snapshot. "
+                   f"One pair of snapshots so far; re-measured with every new one.")
         for day in late_days:
-            bp, n = rollforward_impact(conn, source_b, snap_b, day)
-            out.append(f"   {day} was published late. Falling back on the previous day's prices, as the ASISA "
-                       f"standard permits, would have misstated an equal-weighted fund of {n} securities by "
-                       f"{bp:+,.0f}bp, {abs(bp) / MATERIALITY_BP:.1f}x the {MATERIALITY_BP / 100:g}% tolerance.")
+            errors = rollforward_errors(conn, source_b, snap_b, day)
+            eq_bp = sum(e for _, e in errors) / len(errors) * 10000
+            cap_bp, as_at, _ = cap_weighted_bp(errors, day)
+            out.append(f"   {day} was published late. The ASISA standard allows the last available price only after "
+                       f"checking it is fair and reasonable. Used unchecked, the previous day's prices would have "
+                       f"misstated a Top 40 fund by {cap_bp:+,.0f}bp ({abs(cap_bp) / MATERIALITY_BP:.1f}x the "
+                       f"tolerance; Satrix 40 weights at {as_at}), or an equal-weighted fund of {len(errors)} "
+                       f"securities by {eq_bp:+,.0f}bp. Whether the delay matters depends on the fund's valuation "
+                       f"point and publication deadline.")
     else:
         out.append("   Measured from the second snapshot onward; only one exists so far.")
 

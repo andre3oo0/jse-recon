@@ -1,0 +1,93 @@
+# Satrix 40 (tracks the FTSE/JSE Top 40) year-end weights, fair value over total from its audited statements, note 3.
+
+weights:
+  - as_at: 2024-12-31
+    source: https://satrix.co.za/media/90845
+    total_zar: 14457808075
+    securities:
+      NPN: 0.133678
+      FSR: 0.073821
+      SBK: 0.056886
+      CPI: 0.051247
+      PRX: 0.042973
+      GFI: 0.041833
+      AGL: 0.039812
+      MTN: 0.031898
+      BTI: 0.030688
+      ABG: 0.030191
+      CFR: 0.028122
+      SLM: 0.027762
+      BID: 0.027510
+      SHP: 0.027093
+      ANG: 0.025256
+      NED: 0.024625
+      DSY: 0.019957
+      BVT: 0.017179
+      CLS: 0.017045
+      HAR: 0.016064
+      BHG: 0.015770
+      NRP: 0.015756
+      REM: 0.014944
+      PPH: 0.014635
+      MRP: 0.014087
+      ANH: 0.013987
+      IMP: 0.013559
+      APN: 0.012247
+      VOD: 0.011591
+      RNI: 0.011418
+      OUT: 0.010772
+      WHL: 0.010765
+      OMU: 0.010488
+      SOL: 0.009308
+      MNP: 0.009265
+      GLN: 0.009264
+      INP: 0.008970
+      GRT: 0.008226
+      SSW: 0.008067
+      EXX: 0.007315
+      INL: 0.005929
+  - as_at: 2025-12-31
+    source: https://satrix.co.za/media/92341
+    total_zar: 20487705568
+    securities:
+      NPN: 0.112088
+      GFI: 0.086163
+      ANG: 0.067121
+      FSR: 0.062180
+      SBK: 0.051310
+      CPI: 0.048095
+      VAL: 0.044332  # the statement names it "Valterra Partners LLC"
+      MTN: 0.040109
+      PRX: 0.032124
+      IMP: 0.027575
+      AGL: 0.027194
+      ABG: 0.026689
+      HAR: 0.024785
+      SLM: 0.023239
+      CFR: 0.022990
+      SSW: 0.022856
+      BTI: 0.020487
+      BID: 0.019053
+      SHP: 0.017165
+      DSY: 0.016446
+      NED: 0.016312
+      NPH: 0.016024
+      ANH: 0.013487
+      PPH: 0.013133
+      REM: 0.012179
+      GLN: 0.012127
+      NRP: 0.011615
+      VOD: 0.011332
+      BVT: 0.010854
+      CLS: 0.010590
+      RNI: 0.010386
+      BHG: 0.009802
+      SOL: 0.008378
+      OMU: 0.008247
+      OUT: 0.008239
+      GRT: 0.007785
+      WHL: 0.006779
+      MRP: 0.005944
+      INP: 0.005676
+      MNP: 0.005050
+      INL: 0.004062

@@ -279,11 +279,17 @@ def cross_source(conn: sqlite3.Connection) -> list[str]:
     return lines
 
 
+def feeds_under_test(conn: sqlite3.Connection) -> list[str]:
+    # A rotated source holds only a few securities per snapshot, so only full-universe feeds get the questions
+    settings = config.sources()
+    return [r[0] for r in conn.execute("SELECT DISTINCT source FROM ingest_run ORDER BY source")
+            if not settings.get(r[0], {}).get("daily_batch")]
+
+
 def main() -> int:
     conn = db.connect()
     db.apply_schema(conn)
-    sources = [r[0] for r in conn.execute("SELECT DISTINCT source FROM ingest_run ORDER BY source")]
-    for source in sources:
+    for source in feeds_under_test(conn):
         print("\n".join(answers(conn, source)))
     return 0
 

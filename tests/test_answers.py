@@ -3,8 +3,9 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-from src import answers, db, staging
+from src import answers, config, db, staging
 
 
 class NavImpactTest(unittest.TestCase):
@@ -63,6 +64,25 @@ class NavImpactTest(unittest.TestCase):
         bp, n = answers.rollforward_impact(conn, "v", "2026-09-29", "2026-09-28")
         self.assertEqual(n, 2)
         self.assertAlmostEqual(bp, (65752 / 57840 - 1) / 2 * 10000, places=6)
+
+
+class FeedsUnderTestTest(unittest.TestCase):
+    def test_rotated_sources_do_not_get_the_questions(self):
+        conn = db.connect(Path(tempfile.mkdtemp()) / "test.db")
+        self.addCleanup(conn.close)
+        db.apply_schema(conn)
+        for source in ("eodhd", "yahoo"):
+            conn.execute(
+                """
+                INSERT INTO ingest_run (run_id, source, snapshot_date, fetched_at, session_cutoff, lookback_period,
+                    symbols_requested, symbols_returned, rows_landed, landing_path, landing_sha256)
+                VALUES (?, ?, '2026-09-29', '', '2026-09-28', '', 0, 0, 0, '', '')
+                """,
+                (source, source),
+            )
+        settings = {"yahoo": {}, "eodhd": {"daily_batch": 18}}
+        with mock.patch.object(config, "sources", return_value=settings):
+            self.assertEqual(answers.feeds_under_test(conn), ["yahoo"])
 
 
 if __name__ == "__main__":

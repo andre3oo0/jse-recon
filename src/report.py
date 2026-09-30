@@ -319,9 +319,7 @@ def build(conn: sqlite3.Connection, path) -> None:
 
     ws = wb.create_sheet("Answers")
     ws.column_dimensions["A"].width = 150
-    for source in [r[0] for r in conn.execute("SELECT DISTINCT source FROM ingest_run ORDER BY source")]:
-        if config.sources().get(source, {}).get("daily_batch"):
-            continue
+    for source in answers.feeds_under_test(conn):
         for line in answers.answers(conn, source):
             ws.append([line])
             ws.cell(ws.max_row, 1).alignment = Alignment(wrap_text=True, vertical="top")

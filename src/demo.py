@@ -12,7 +12,7 @@ from unittest import mock
 
 import pandas as pd
 
-from src import answers, config, db, holdings, ingest, lifecycle, recon, report, security_master, staging
+from src import answers, approved, config, db, holdings, ingest, lifecycle, recon, report, security_master, staging
 from src import trading_calendar
 from src.sources.base import PRICE_COLUMNS, PriceSource
 
@@ -48,6 +48,7 @@ PLANTED = {
     "under_tolerance": ("SYL", "2026-08-28"),  # side B differs by 0.02%, inside tolerance
     "market_fall": "2026-09-03",  # every share falls 10%: not an exception
     "late_day_fall": ("SYA", LATE_DAY),  # the largest holding falls 8% on the day side A publishes late
+    "missing_both": ("SYL", "2026-08-31"),  # neither side has a price: the previous close must be carried
 }
 
 
@@ -67,7 +68,7 @@ SOURCES = {"synthetic_a": SyntheticSource("synthetic_a", ".A"), "synthetic_b": S
 
 def settings() -> dict:
     return {"synthetic_a": {"suffix": ".A", "period": "SYNTHETIC"}, "synthetic_b": {"suffix": ".B", "period": "SYNTHETIC"},
-            "recon_pairs": [["synthetic_a", "synthetic_b"]]}
+            "recon_pairs": [["synthetic_a", "synthetic_b"]], "price_hierarchy": ["synthetic_a", "synthetic_b"]}
 
 
 def tolerances() -> dict:
@@ -125,6 +126,8 @@ def bars(side: str, snapshot: str, truth: dict[str, dict[str, float]]) -> pd.Dat
         days = sorted(series)
         for n, day in enumerate(days):
             if day > snapshot or (side == "synthetic_a" and snapshot == LATE_DAY and day == LATE_DAY):
+                continue
+            if (code, day) == PLANTED["missing_both"]:
                 continue
             close, volume = series[day], 100000.0 + 1000 * n
             if side == "synthetic_a":
@@ -188,6 +191,7 @@ def build(directory: Path = DEMO_DIR, sample: Path | None = SAMPLE) -> list[str]
         staging.build(conn)
         recon.replay(conn)
         lifecycle.build(conn)
+        approved.build(conn)
         lines = []
         for source in answers.feeds_under_test(conn):
             lines += ["SYNTHETIC DATA: fictional securities and vendors, with planted errors.", *answers.answers(conn, source), ""]

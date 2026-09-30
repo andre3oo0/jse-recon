@@ -1,5 +1,5 @@
 -- Warehouse schema. Needs SQLite 3.39+ for FULL OUTER JOIN in the recon layer.
-PRAGMA user_version = 9;  -- bump on any change so src/db.py asks for a rebuild
+PRAGMA user_version = 10;  -- bump on any change so src/db.py asks for a rebuild
 PRAGMA foreign_keys = ON;
 
 -- One row per security, keyed on the current JSE alpha code; ISIN should replace it once populated.
@@ -161,6 +161,17 @@ CREATE TABLE IF NOT EXISTS break_episode (
     latest_diff_pct  REAL,  -- B against A, percent, in the latest breaking comparison
     state            TEXT NOT NULL CHECK (state IN ('OPEN', 'TIMING', 'CLEARED')),
     PRIMARY KEY (recon_name, key_id, price_date, first_seen)
+);
+
+-- The price to use for each security and trading day, from the price hierarchy, with the reason it was chosen.
+CREATE TABLE IF NOT EXISTS approved_price (
+    security_id  TEXT NOT NULL,
+    price_date   TEXT NOT NULL,
+    close_zar    REAL,  -- NULL only when no clean price has ever been seen
+    source       TEXT NOT NULL,
+    status       TEXT NOT NULL CHECK (status IN ('APPROVED', 'TO_VERIFY', 'SECONDARY', 'FALLBACK')),
+    reason       TEXT NOT NULL,
+    PRIMARY KEY (security_id, price_date)
 );
 
 -- Analyst notes from config/break_notes.yaml: the one part of the register that cannot be derived.

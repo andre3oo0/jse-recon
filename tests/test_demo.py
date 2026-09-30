@@ -79,5 +79,22 @@ class DemoTest(unittest.TestCase):
     def test_the_sample_report_is_complete(self):
         wb = load_workbook(self.sample)
         self.assertEqual(wb.sheetnames, ["Summary", "Open Breaks", "New Today", "Cleared", "Restatements",
-                                         "Data Quality", "Holdings", "Answers", "About"])
+                                         "Data Quality", "Holdings", "Approved Prices", "Answers", "About"])
         self.assertGreater(wb["Open Breaks"].max_row, 10)
+
+    def test_the_approved_price_follows_the_hierarchy(self):
+        chosen = {(sec, day): (source, status) for sec, day, source, status in self.conn.execute(
+            "SELECT security_id, price_date, source, status FROM approved_price")}
+        self.assertEqual(chosen[demo.PLANTED["unit_error"]], ("synthetic_b", "SECONDARY"))
+        self.assertEqual(chosen[demo.PLANTED["missing_both"]], ("previous close", "FALLBACK"))
+        self.assertEqual(chosen[demo.PLANTED["unexplained_jump"]], ("synthetic_a", "TO_VERIFY"))
+        self.assertEqual(chosen[(demo.PLANTED["scale_from"][0], "2026-09-11")], ("synthetic_a", "TO_VERIFY"))
+        self.assertEqual(chosen[("SYA", "2026-08-05")], ("synthetic_a", "APPROVED"))
+
+    def test_the_fallback_carries_the_previous_clean_close(self):
+        code, day = demo.PLANTED["missing_both"]
+        carried, previous = self.conn.execute(
+            "SELECT a.close_zar, (SELECT close_zar FROM stg_price WHERE source = 'synthetic_a' AND security_id = ? "
+            "AND price_date < ? ORDER BY price_date DESC, snapshot_date DESC LIMIT 1) "
+            "FROM approved_price a WHERE a.security_id = ? AND a.price_date = ?", (code, day, code, day)).fetchone()
+        self.assertEqual(carried, previous)

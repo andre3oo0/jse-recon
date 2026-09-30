@@ -3,7 +3,7 @@
 import sqlite3
 import sys
 
-from src import config, db, holdings, lifecycle
+from src import approved, config, db, holdings, lifecycle
 
 MATERIALITY_BP = 50.0  # ASISA NAV Standard s10.3.3: suggested maximum tolerance for a pricing error, 0.5% of NAV
 
@@ -291,7 +291,31 @@ def answers(conn: sqlite3.Connection, source: str) -> list[str]:
 
     out.append("9. Does the broker statement agree with the internal book?")
     out.extend(statement(conn) or ["   No broker statement loaded."])
+
+    out.append("10. Which price should the fund use today, and why?")
+    out.extend(price_to_use(conn) or ["   No approved prices yet."])
     return out
+
+
+def price_to_use(conn: sqlite3.Connection) -> list[str]:
+    day = approved.latest_day(conn)
+    if not day:
+        return []
+    primary, secondary = approved.hierarchy()
+    counts = approved.status_counts(conn, day)
+    lines = [f"   For {day}, using {primary} first, then {secondary}, then the previous close: "
+             f"{counts.get('APPROVED', 0)} approved, {counts.get('TO_VERIFY', 0)} to verify, "
+             f"{counts.get('SECONDARY', 0)} from {secondary}, {counts.get('FALLBACK', 0)} carried forward."]
+    groups: dict[tuple[str, str], list[str]] = {}
+    for sec, _, _, _, status, reason in approved.for_day(conn, day):
+        if status != "APPROVED":
+            groups.setdefault((status, reason), []).append(sec)
+    for (status, reason), secs in sorted(groups.items(), key=lambda g: -len(g[1])):
+        shown = ", ".join(secs[:3]) + (f" and {len(secs) - 3} more" if len(secs) > 3 else "")
+        lines.append(f"   {status}, {len(secs)}: {reason} ({shown}).")
+    if groups:
+        lines.append("   Each share's price, source and reason are on the Approved Prices tab of the report.")
+    return lines
 
 
 def statement(conn: sqlite3.Connection) -> list[str]:

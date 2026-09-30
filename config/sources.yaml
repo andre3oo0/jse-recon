@@ -17,3 +17,6 @@ afx:  # parked: the site drops connections from GitHub's runners, and nothing ru
 
 recon_pairs:  # add [yahoo, afx] and [eodhd, afx] back if AFX ever runs
   - [yahoo, eodhd]
+
+# The approved price comes from the primary source, then the secondary, then the previous close (src/approved.py)
+price_hierarchy: [yahoo, eodhd]

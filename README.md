@@ -90,6 +90,14 @@ reconciliation between sources.
   wrong with a fund valued at Friday's prices; the only way to know is to check every expected day
   against an independent calendar.
 
+## My recommendation
+
+I wrote it up as a one-page memo to a Head of Valuations ([docs/memo.md](docs/memo.md)): never release a
+fund's value from either vendor unchecked; compare every share against a second source every day, which the
+free plan does not allow; and take each day's price from a fixed hierarchy (primary, then secondary, then the
+previous close, verified), which the report's Approved Prices tab applies to every share. The memo sets out
+each threshold with its evidence, the escalation rule, the cost, and what these controls cannot catch.
+
 ## The same control for holdings
 
 The statement a fund gets from its broker has to agree with the fund's own records of what it
@@ -125,6 +133,7 @@ decision are in [docs/plan.md](docs/plan.md).
 7. Do independent sources agree?
 8. When sources disagree, does it get fixed, and how fast?
 9. Does the broker statement agree with the fund's own records?
+10. Which price should the fund use today, and why?
 
 Each answer is worked out from the stored data, with the evidence behind it. The first two cover
 every price stored, not only the latest day's download, so an old error never drops out of the
@@ -171,7 +180,7 @@ pip install -r requirements.txt
 python -m src.demo
 ```
 
-It prints the nine answers for each fictional vendor and writes the Excel break report to
+It prints the ten answers for each fictional vendor and writes the Excel break report to
 [docs/sample/break_report_SYNTHETIC.xlsx](docs/sample/break_report_SYNTHETIC.xlsx). A test checks that every
 planted error is found and every trap stays quiet, and each push runs the demo and recalculates its report in
 LibreOffice. The tests run with `python -m unittest discover -s tests -t .`.
@@ -184,6 +193,7 @@ everything; `python -m src.charts` redraws the charts above.
 
 ## More detail
 
+- [docs/memo.md](docs/memo.md) is the recommendation to a Head of Valuations
 - [docs/findings.md](docs/findings.md) is a dated log of each finding, with the evidence
 - [docs/sources.md](docs/sources.md) compares the nine price sources considered, and why EODHD was chosen
 - [docs/plan.md](docs/plan.md) covers the design and the reasoning behind each decision

@@ -11,8 +11,8 @@ from openpyxl import load_workbook
 from src import config, db, lifecycle, report, trading_calendar
 from tests.test_lifecycle import D1, D2, D3, D6, DAY, NAME
 
-SHEETS = ["Summary", "Open Breaks", "New Today", "Cleared", "Restatements", "Data Quality", "Holdings", "Answers",
-          "About"]
+SHEETS = ["Summary", "Open Breaks", "New Today", "Cleared", "Restatements", "Data Quality", "Holdings", "Approved Prices",
+          "Answers", "About"]
 
 
 class ReportTest(unittest.TestCase):

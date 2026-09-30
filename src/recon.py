@@ -5,7 +5,7 @@ import sqlite3
 import sys
 from dataclasses import dataclass
 
-from src import config, db, lifecycle, staging
+from src import approved, config, db, lifecycle, staging
 
 BREAKS = ("VAL", "ONE_A", "ONE_B", "DUP", "UNIT", "CAL", "STALE")
 
@@ -165,6 +165,7 @@ def main(argv=None) -> int:
 
     replay(conn)
     lifecycle.build(conn)
+    approved.build(conn)
 
     latest = conn.execute(
         """

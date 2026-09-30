@@ -9,7 +9,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from src import answers, config, db, holdings, ingest, staging
+from src import answers, approved, config, db, holdings, ingest, staging
 
 FONT = "Arial"
 HEADER_FILL = PatternFill("solid", fgColor="1F3864")
@@ -331,6 +331,15 @@ def build(conn: sqlite3.Connection, path) -> None:
     if latest:
         wb["Holdings"]["O1"] = ("SYNTHETIC statement" if latest[2] else "Statement") + f" as of {latest[1]}"
         wb["Holdings"]["O1"].font = Font(name=FONT, bold=True, color="C00000")
+
+    day_priced = approved.latest_day(conn)
+    table(wb.create_sheet("Approved Prices"), [
+        ("Security", 10, None), ("Name", 26, None), ("Price to use (R)", 14, ZAR), ("Source", 14, None),
+        ("Status", 11, None), ("Why", 90, None),
+    ], approved.for_day(conn, day_priced) if day_priced else [], "No approved prices yet")
+    if day_priced:
+        wb["Approved Prices"]["H1"] = f"For {day_priced}; exceptions first"
+        wb["Approved Prices"]["H1"].font = Font(name=FONT, bold=True)
 
     ws = wb.create_sheet("Answers")
     ws.column_dimensions["A"].width = 150
